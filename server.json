@@ -1,18 +1,22 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.smeet666/mcp-libraryofcongress",
-  "description": "Search inside digitised newspaper pages, browse the Library of Congress catalogue and read its records.",
+  "description": "Search inside scanned US newspapers and browse the Library of Congress catalogue. No API key.",
   "websiteUrl": "https://github.com/smeet666/mcp-libraryofcongress#readme",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/smeet666/mcp-libraryofcongress/main/assets/icon-128.png",
       "mimeType": "image/png",
-      "sizes": ["128x128"]
+      "sizes": [
+        "128x128"
+      ]
     },
     {
       "src": "https://raw.githubusercontent.com/smeet666/mcp-libraryofcongress/main/assets/icon-512.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"]
+      "sizes": [
+        "512x512"
+      ]
     }
   ],
   "repository": {
