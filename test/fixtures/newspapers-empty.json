@@ -1,0 +1,18 @@
+{
+  "pagination": {
+    "current": 1,
+    "from": 1,
+    "of": 0,
+    "perpage": 2,
+    "results": "1 - 2",
+    "to": 2,
+    "total": 0,
+    "page_list": [
+      {
+        "number": 1,
+        "url": null
+      }
+    ]
+  },
+  "results": []
+}

@@ -1,0 +1,65 @@
+{
+  "item": {
+    "id": "http://www.loc.gov/item/glass-orchard-1971/",
+    "url": "https://www.loc.gov/item/glass-orchard-1971/",
+    "title": "The Glass Orchard &amp; other <cite>records</cite>",
+    "date": "1971-06-04",
+    "contributor_names": ["Reame, Vashti, 1912-1988, author"],
+    "description": [
+      "A field recording made across two winters in the salt country.",
+      "Second paragraph of the description."
+    ],
+    "notes": ["Title devised by Library staff.", "Date from the accession record."],
+    "subjects": [
+      {
+        "orchards": "https://www.loc.gov/example/orchards"
+      },
+      {
+        "salt flats": "https://www.loc.gov/example/salt-flats"
+      },
+      {
+        "field recordings": "https://www.loc.gov/example/field-recordings"
+      }
+    ],
+    "location": ["utah", "united states"],
+    "language": ["english"],
+    "partof": [
+      {
+        "count": 57,
+        "title": "salt country archive",
+        "url": "https://www.loc.gov/example/archive"
+      },
+      {
+        "count": 4,
+        "title": "music division",
+        "url": "https://www.loc.gov/example/music"
+      }
+    ],
+    "repository": ["Library of Congress Music Division Washington, D.C. 20540 USA"],
+    "call_number": "ML 1234",
+    "rights_advisory": "No known restrictions on publication.",
+    "original_format": ["book"]
+  },
+  "cite_this": {
+    "apa": "Reame, V. (1971) <cite>The Glass Orchard &amp; other records</cite>. Retrieved from the Library of Congress.",
+    "chicago": "Reame, Vashti. <cite>The Glass Orchard</cite>. 1971."
+  },
+  "resources": [
+    {
+      "caption": "digital file from original",
+      "files": [
+        [
+          {
+            "mimetype": "image/tiff",
+            "url": "https://tile.example.invalid/a.tif"
+          }
+        ]
+      ],
+      "url": "https://www.loc.gov/resource/glass.orchard/",
+      "image": "https://tile.example.invalid/a_150px.jpg"
+    }
+  ],
+  "ignored_block": {
+    "note": "the parsers must not read this"
+  }
+}

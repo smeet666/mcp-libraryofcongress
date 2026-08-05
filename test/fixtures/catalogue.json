@@ -1,0 +1,49 @@
+{
+  "pagination": {
+    "current": 1,
+    "from": 1,
+    "of": 431,
+    "perpage": 3,
+    "results": "1 - 3",
+    "to": 3,
+    "total": 144,
+    "page_list": [
+      {
+        "number": 1,
+        "url": null
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "http://www.loc.gov/item/glass-orchard-1971/",
+      "url": "https://www.loc.gov/item/glass-orchard-1971/",
+      "title": "The Glass Orchard",
+      "date": "1971-06-04",
+      "contributor": ["reame, vashti", "orchard pictures"],
+      "original_format": ["book"],
+      "online_format": ["online text", "pdf"],
+      "location": ["utah", "united states"],
+      "subject": ["orchards", "salt flats"],
+      "digitized": true,
+      "ignored_block": {
+        "note": "the parsers must not read this"
+      }
+    },
+    {
+      "id": "http://lccn.loc.gov/58001234",
+      "url": "//lccn.loc.gov/58001234",
+      "title": "Letters from the Salt Flats",
+      "date": "1954",
+      "contributor": "marchetti, ines",
+      "original_format": "book",
+      "location": [],
+      "subject": [],
+      "digitized": false
+    },
+    {
+      "date": "1990",
+      "contributor": ["anonymous"]
+    }
+  ]
+}

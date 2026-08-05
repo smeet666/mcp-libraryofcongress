@@ -1,0 +1,46 @@
+{
+  "pagination": {
+    "current": 1,
+    "from": 1,
+    "of": 583,
+    "perpage": 2,
+    "results": "1 - 2",
+    "to": 2,
+    "total": 292,
+    "page_list": [
+      {
+        "number": 1,
+        "url": null
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "http://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
+      "url": "https://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
+      "title": "Salt Country Field Recordings",
+      "description": ["Recordings made in the salt country between 1928 and 1954."],
+      "count": 57,
+      "items": "https://www.loc.gov/collections/salt-country-field-recordings/",
+      "subject": ["music", "folklife"],
+      "item": {
+        "formats": ["audio", "manuscripts"]
+      },
+      "ignored_block": {
+        "note": "the parsers must not read this"
+      }
+    },
+    {
+      "id": "http://www.loc.gov/collections/orchard-photographs/",
+      "url": "https://www.loc.gov/collections/orchard-photographs/",
+      "title": "Orchard Photographs",
+      "description": [],
+      "items": "https://www.loc.gov/collections/orchard-photographs/",
+      "subject": [],
+      "item": {}
+    },
+    {
+      "count": 3
+    }
+  ]
+}
