@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/mcp-libraryofcongress.svg)](https://www.npmjs.com/package/mcp-libraryofcongress)
 [![CI](https://github.com/smeet666/mcp-libraryofcongress/actions/workflows/ci.yml/badge.svg)](https://github.com/smeet666/mcp-libraryofcongress/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/mcp-libraryofcongress.svg)](LICENSE)
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-6E56CF)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.smeet666/mcp-libraryofcongress)
 [![Glama](https://glama.ai/mcp/servers/smeet666/mcp-libraryofcongress/badges/score.svg)](https://glama.ai/mcp/servers/smeet666/mcp-libraryofcongress)
 
 An MCP server for the [Library of Congress](https://www.loc.gov). **Search the
