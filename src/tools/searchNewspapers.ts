@@ -21,6 +21,7 @@ import { z } from "zod";
 import type { LocClient } from "../loc/client.js";
 import type { FacetField } from "../loc/paths.js";
 import type { Facets } from "../loc/urls.js";
+import { strictInput } from "./arguments.js";
 import { OCR_CAVEAT, ok, toToolError, truncate } from "./shared.js";
 import type { ToolResult } from "./shared.js";
 import { invalidInput } from "../errors.js";
@@ -36,7 +37,7 @@ export const searchNewspapersDescription = [
   "Use search_items instead when looking for a work by its title, creator or subject.",
 ].join(" ");
 
-export const searchNewspapersInput = z.object({
+export const searchNewspapersInput = strictInput({
   query: z
     .string()
     .min(2)

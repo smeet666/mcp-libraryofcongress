@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 import type { LocClient } from "../loc/client.js";
+import { strictInput } from "./arguments.js";
 import { RIGHTS_CAVEAT, ok, sliceAtLineBoundary, toToolError } from "./shared.js";
 import type { ToolResult } from "./shared.js";
 
@@ -24,7 +25,7 @@ export const getItemDescription = [
   "A long description paginates: when 'next_offset' is not null, call again with 'offset' set to it.",
 ].join(" ");
 
-export const getItemInput = z.object({
+export const getItemInput = strictInput({
   identifier: z
     .string()
     .min(1)

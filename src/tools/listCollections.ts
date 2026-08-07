@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 import type { LocClient } from "../loc/client.js";
+import { strictInput } from "./arguments.js";
 import { ok, toToolError, truncate } from "./shared.js";
 import type { ToolResult } from "./shared.js";
 
@@ -19,7 +20,7 @@ export const listCollectionsDescription = [
   "'item_count' is how many records the collection gathers, which is the size of the corpus rather than the number of rows here.",
 ].join(" ");
 
-export const listCollectionsInput = z.object({
+export const listCollectionsInput = strictInput({
   limit: z.number().int().min(1).max(50).default(20).describe("Collections to return."),
   page: z.number().int().min(1).max(100).default(1).describe("Which page of collections, from 1."),
   max_description_chars: z

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+
+- An argument no tool declared was read and dropped, and the answer came back
+  computed on the defaults with nothing said about it. A caller who mistyped a
+  name, or wrote one a tool answering a neighbouring question takes, was
+  answered as confidently as one who had asked what they meant. Every tool now
+  refuses an argument it does not declare, under the `invalid_input` code,
+  naming the argument and offering the declared name when one is close:
+  `identifer` on `get_item` is answered with `identifier`, `limit_per_page` on
+  `search_newspapers` with `limit`.
+- The schema each tool publishes now carries `additionalProperties: false`, so a
+  client reads the rule before it calls rather than discovering it from a
+  refusal.
+
 ## 1.0.0
 
 First stable release. The tool names, the argument names and the shape of the

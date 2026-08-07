@@ -16,6 +16,7 @@ import type { LocClient } from "../loc/client.js";
 import { FORMAT_ROUTES } from "../loc/paths.js";
 import type { FacetField } from "../loc/paths.js";
 import type { Facets } from "../loc/urls.js";
+import { strictInput } from "./arguments.js";
 import { ok, recordSchema, renderRecords, toToolError } from "./shared.js";
 import type { ToolResult } from "./shared.js";
 import { invalidInput } from "../errors.js";
@@ -31,7 +32,7 @@ export const searchItemsDescription = [
 
 const mediaTypes = FORMAT_ROUTES as [string, ...string[]];
 
-export const searchItemsInput = z.object({
+export const searchItemsInput = strictInput({
   query: z
     .string()
     .min(1)
