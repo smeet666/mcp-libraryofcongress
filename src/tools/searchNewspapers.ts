@@ -1,9 +1,17 @@
 /**
- * search_newspapers: find a phrase in the text of digitised newspaper pages.
+ * search_newspapers: find words printed in the text of digitised newspaper pages.
  *
  * This is the question no catalogue can answer. The corpus holds what optical
  * recognition read off millions of pages of American newspapers, so a match
- * comes back with the paper, the date, the leaf and the words around it.
+ * comes back with the paper, the date, the leaf and a block of that text.
+ *
+ * Two things about that block govern what an answer may claim. The Library
+ * sends the opening of a page rather than the whole of it, so the searched
+ * words are often below where it stops and the excerpt is then the start of the
+ * page: `excerpt_kind` names which of the two a caller is holding, and the
+ * label rides on the excerpt in the text block so the two cannot be read alike.
+ * And the Library decides what double quotes mean, so a quoted query is
+ * narrowed rather than held to the phrase, and the answer says so.
  *
  * The weight of an answer is the reason for the two budget arguments. A page
  * carries a block of machine-read text, and a page of results returns one such
@@ -29,11 +37,11 @@ import { invalidInput } from "../errors.js";
 export const searchNewspapersDescription = [
   "Search the text inside digitised American newspaper pages held by the Library of Congress.",
   "This reads what optical recognition took off the scanned pages, so it finds a phrase that appears nowhere in a title or a catalogue record.",
-  "Put a phrase in double quotes to match it whole; without quotes the words are matched separately, which finds far more.",
+  "Double quotes narrow the search sharply, and the Library decides how it matches what is inside them: a page can come back carrying the words apart or in another order rather than the phrase as written. Without quotes the words are matched separately, which finds far more again.",
   "'total' counts the pages that match, and they page: ask for page 2, 3 and so on to see beyond the first answer. It is not a count of how many times the words occur.",
   "Each match names the newspaper, the date, the leaf of the issue and the state it was published in, and 'source_url' opens that leaf with the query applied.",
   "'location' keeps to papers published in one state, 'publication' to a single paper, and 'year_from' with 'year_to' to a span of years. A filter matching nothing is dropped and the answer says so.",
-  "The Library returns the opening of a page's text with each row rather than the whole page, so the searched words are often further down than the excerpts reach: 'words_located' says which of the two happened for each match.",
+  "Every match carries 'excerpt_kind', and the excerpts are labelled with it in the text. A 'passage' is the text around the words that matched. A 'page_opening' is the start of the page, sent because the text the Library returned with the row stops before those words appear, so it does not carry the match and quoting it quotes something else.",
   "Use search_items instead when looking for a work by its title, creator or subject.",
 ].join(" ");
 
@@ -106,12 +114,14 @@ export const searchNewspapersOutput = z.object({
       published_on: z.string().nullable().describe("Date of the issue, as published."),
       publication: z.string().nullable().describe("The newspaper, with the years it ran."),
       state: z.string().nullable().describe("Where the paper was published."),
-      words_located: z
-        .boolean()
+      excerpt_kind: z
+        .enum(["passage", "page_opening"])
         .describe(
-          "True when the searched words were found in the text returned with this row, in which case the excerpts are centred on them. False when they sit further down the page than that text reaches, in which case the excerpts are its opening.",
+          "'passage' means the excerpts are the text around the words that matched, centred on them because they were found in the text returned with this row. 'page_opening' means they are the start of the page, sent because that text stops before the searched words appear, so a page_opening does not carry the match.",
         ),
-      excerpts: z.array(z.string()).describe("Passages as a machine read them off the page."),
+      excerpts: z
+        .array(z.string())
+        .describe("Machine-read text off the page, all of the kind 'excerpt_kind' names."),
       source_url: z.string().describe("Opens the leaf itself, with the query applied."),
     }),
   ),
@@ -119,6 +129,15 @@ export const searchNewspapersOutput = z.object({
 });
 
 export type SearchNewspapersArgs = z.infer<typeof searchNewspapersInput>;
+
+/**
+ * A query holding at least one quoted run of words.
+ *
+ * The Library narrows a quoted search, and what it does inside the quotes is
+ * its own: pages come back carrying the words apart, so an answer to a quoted
+ * query is qualified rather than presented as pages that printed the phrase.
+ */
+const QUOTED_PHRASE = /"[^"]+"/;
 
 /** The optional narrowing, named as a caller wrote it, for the note. */
 function describeNarrowing(args: SearchNewspapersArgs): string[] {
@@ -175,7 +194,7 @@ export async function runSearchNewspapers(
       const wider = await client.searchNewspapers(args.query, args.limit, args.page, budget);
       if (wider.data.paging.resultCount > 0) {
         notes.push(
-          `No page carrying ${args.query} matches ${narrowing.join(", ")}. Those were set aside and the search was asked again without them, so the matches below are unfiltered. The corpus uses its own wording: read 'state' and 'publication' on a match to see the form it expects.`,
+          `The Library matched no page for ${args.query} under ${narrowing.join(", ")}. Those were set aside and the search was asked again without them, so the matches below are unfiltered. The corpus uses its own wording: read 'state' and 'publication' on a match to see the form it expects.`,
         );
         result = wider;
       }
@@ -191,6 +210,7 @@ export async function runSearchNewspapers(
 
     const hits = data.hits.map((hit) => ({
       identifier: hit.identifier,
+      excerpt_kind: hit.wordsLocated ? ("passage" as const) : ("page_opening" as const),
       title: hit.title,
       creator: hit.creator,
       year: hit.year,
@@ -198,7 +218,6 @@ export async function runSearchNewspapers(
       published_on: hit.publishedOn,
       publication: hit.publication,
       state: hit.state,
-      words_located: hit.wordsLocated,
       excerpts: hit.excerpts.map((excerpt) => truncate(excerpt, args.max_excerpt_chars + 2)),
       source_url: hit.sourceUrl,
     }));
@@ -206,10 +225,18 @@ export async function runSearchNewspapers(
     const total = data.paging.resultCount;
     if (hits.length > 0) notes.push(OCR_CAVEAT);
 
-    const elsewhere = hits.filter((hit) => !hit.words_located).length;
-    if (elsewhere > 0) {
+    const openings = hits.filter(
+      (hit) => hit.excerpt_kind === "page_opening" && hit.excerpts.length > 0,
+    ).length;
+    if (openings > 0) {
       notes.push(
-        `On ${elsewhere} of ${hits.length} match(es) the searched words sit further down the page than the text returned with the row, so those excerpts are the opening of the page rather than the passage that matched. Follow source_url, which opens the leaf with the query applied.`,
+        `On ${openings} of ${hits.length} match(es) the searched words sit further down the page than the text returned with the row, so those excerpts are the opening of the page rather than the passage that matched, and each is labelled [page opening]. Quoting one of them quotes something else: follow source_url, which opens the leaf with the query applied.`,
+      );
+    }
+
+    if (hits.length > 0 && QUOTED_PHRASE.test(args.query)) {
+      notes.push(
+        "The query carries double quotes. That narrows the search sharply, and the Library decides what the quotes mean: it does not guarantee that a matched page carries the words together in that order, so a match can be a page where they sit apart. Read the page behind source_url before repeating the query as the phrase it printed.",
       );
     }
 
@@ -220,7 +247,7 @@ export async function runSearchNewspapers(
     }
     if (total === 0) {
       notes.push(
-        "No digitised newspaper page carries these words. An unquoted query matches the words separately, which usually finds more.",
+        "The Library matched no digitised newspaper page for these words. An unquoted query matches the words separately, which usually finds more.",
       );
     }
     if (hits.length === 0 && total > 0) {
@@ -232,9 +259,9 @@ export async function runSearchNewspapers(
     const body =
       hits.length === 0
         ? total > 0
-          ? `Page ${args.page} is past the last of ${total} newspaper pages carrying ${args.query}.`
+          ? `Page ${args.page} is past the last of ${total} newspaper pages the Library matched for ${args.query}.`
           : `Nothing found in the scanned newspapers for ${args.query}.`
-        : `${hits.length} of ${total} newspaper pages carrying ${args.query}:\n` +
+        : `${hits.length} of ${total} newspaper pages the Library matched for ${args.query}:\n` +
           hits
             .map((hit, index) => {
               const where = [
@@ -245,7 +272,10 @@ export async function runSearchNewspapers(
               ]
                 .filter(Boolean)
                 .join(" ");
-              const passages = hit.excerpts.map((excerpt) => `     ${excerpt}`).join("\n");
+              // The label rides on the excerpt line so a reader who takes one
+              // line out of the block takes what that line is with it.
+              const label = hit.excerpt_kind === "page_opening" ? "[page opening]" : "[passage]";
+              const passages = hit.excerpts.map((excerpt) => `     ${label} ${excerpt}`).join("\n");
               return `${where}\n${passages}\n     ${hit.source_url}`;
             })
             .join("\n");

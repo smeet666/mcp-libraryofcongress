@@ -97,7 +97,7 @@ describe("search_newspapers", () => {
 
     expect(structured(result).total).toBe(0);
     expect(result.isError).toBeUndefined();
-    expect(notesOf(result).join(" ")).toContain("No digitised newspaper page");
+    expect(notesOf(result).join(" ")).toContain("matched no digitised newspaper page");
   });
 
   it("keeps a passage within the budget it was given", async () => {

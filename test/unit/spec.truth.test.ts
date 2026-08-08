@@ -166,8 +166,9 @@ describe("words_located says what actually happened", () => {
     expect(PAGE_WITHOUT_WORDS.startsWith(first.replace(/…$/, "").trimEnd())).toBe(true);
   });
 
-  // A quoted query asks for the phrase whole, so a page carrying every one of
-  // its words scattered has not located it.
+  // An excerpt is centred on a quoted run of words only where that run appears
+  // as written, so text holding those words scattered has not located it and
+  // the opening of the page is what comes back.
   it("is false when a quoted phrase is absent even though its words are present", async () => {
     const scattered =
       "SALT COUNTY HERALD The lamps of the hall were lit and the meeting went on " +

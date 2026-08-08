@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.0.0
+
+### Breaking change
+
+`search_newspapers` no longer returns `words_located`. Each match now carries
+`excerpt_kind`, one of `"passage"` or `"page_opening"`. A caller reading
+`words_located === true` reads `excerpt_kind === "passage"`, and the false case
+reads `"page_opening"`.
+
+The boolean and the excerpt disagreed about what they were. `words_located:
+false` means the machine-read text the Library returned stops before the
+searched words, so the excerpt beside it is the **opening of the page** and does
+not carry the match. It sat in the answer in the same place and the same shape
+as a real passage, and a note beside it was the only thing saying otherwise.
+Measured on a live search, four matches in five were openings. Naming the kind
+of thing an excerpt is puts that where it cannot be skipped.
+
+### Also in this release
+
+- Every excerpt is now labelled in the rendered text itself, as
+  `[passage]` or `[page opening]` ahead of the words, so the mark travels with
+  the text a reader copies.
+- The tool described quoting as matching a phrase whole. It does not. Measured:
+  `"hell is other people"` quoted returns 18 pages, unquoted 1,634,731, and
+  among the quoted results are pages from 1891, 1897 and 1906, which precede the
+  line by half a century. Quoting narrows hard and decides nothing about how the
+  Library matches. The promise is gone from the tool description and from both
+  halves of the README, and a quoted query now carries a note saying the match
+  is not guaranteed to be the phrase.
+- Headings said the pages carry the query. They say what the Library matched.
+
+`NewspaperHit.wordsLocated`, on the `./client` subpath, is unchanged: it is the
+raw fact about the text received, and the tool layer names the kind of thing it
+renders from it.
+
 ## 1.1.0
 
 - An argument no tool declared was read and dropped, and the answer came back

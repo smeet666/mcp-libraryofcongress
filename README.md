@@ -64,12 +64,15 @@ The server is **read-only**. It uploads nothing and writes nothing back.
 A catalogue search reads titles, creators and descriptions. `search_newspapers`
 reads what optical character recognition took off millions of scanned pages of
 American newspapers, so it answers a question nothing else here can: _which
-issue printed this phrase_. A match comes back with the paper, the date, the
+issue printed these words_. A match comes back with the paper, the date, the
 leaf of the issue, the state it was published in, and an address that opens that
 leaf with the query applied.
 
-Put a phrase in double quotes to match it whole. Without quotes the words are
-matched separately, which finds far more.
+Double quotes narrow the search sharply, and the Library decides what they mean:
+a matched page can carry the words apart or in another order rather than the
+phrase as written, so an answer to a quoted query says so and points at the page
+to read. Without quotes the words are matched separately, which finds far more
+again.
 
 The corpus spans every state and a century and a half, so a bare phrase reaches
 a great deal that a question did not ask for. Three arguments narrow it:
@@ -101,9 +104,14 @@ page 2, 3 and so on rather than treating the first answer as the whole of it.
 
 **An excerpt is sometimes the opening of the page.** The Library returns the
 beginning of a page's text with each row rather than the whole page, so the
-searched words are often further down than that text reaches. `words_located`
-says which of the two happened: true and the passage is centred on the words,
-false and it is the opening of the leaf. Follow `source_url` for the rest.
+searched words are often further down than that text reaches. Every match
+carries `excerpt_kind`, and every excerpt is labelled with it in the text block:
+
+- **`passage`**, the text around the words that matched, centred on them.
+- **`page_opening`**, the start of the leaf, sent because the text that came
+  back stops before the searched words appear. It does not carry the match, so
+  quoting it quotes something else. The notes count how many there are, and
+  `source_url` opens the leaf with the query applied.
 
 **Scanned text is machine-read.** Excerpts carry the misreadings that come with
 it. Quote them as scanned text and link the page.
@@ -338,13 +346,17 @@ Le serveur est **en lecture seule**. Il ne téléverse rien et n'écrit rien.
 Une recherche de catalogue lit les titres, les auteurs et les descriptions.
 `search_newspapers` lit ce que la reconnaissance de caractères a tiré de
 millions de pages de journaux américains numérisées, et répond donc à une
-question qu'aucun autre outil ici ne sait traiter : _quel numéro a imprimé cette
-phrase_. Une correspondance revient avec le journal, la date, le feuillet du
+question qu'aucun autre outil ici ne sait traiter : _quel numéro a imprimé ces
+mots_. Une correspondance revient avec le journal, la date, le feuillet du
 numéro, l'État de publication, et une adresse qui ouvre ce feuillet avec la
 requête appliquée.
 
-Mettez une phrase entre guillemets doubles pour la faire correspondre en entier.
-Sans guillemets, les mots sont cherchés séparément, ce qui trouve bien plus.
+Les guillemets doubles resserrent fortement la recherche, et c'est la Library
+qui décide de ce qu'ils veulent dire : une page retenue peut porter les mots
+éloignés les uns des autres ou dans un autre ordre plutôt que la phrase telle
+qu'elle est écrite. La réponse à une requête entre guillemets le dit et renvoie
+à la page à lire. Sans guillemets, les mots sont cherchés séparément, ce qui
+trouve bien plus encore.
 
 Le corpus couvre tous les États et un siècle et demi : une phrase seule ramène
 donc beaucoup de choses que la question ne demandait pas. Trois arguments la
@@ -379,9 +391,15 @@ que de prendre la première réponse pour la totalité.
 **Un extrait est parfois le début de la page.** La Library renvoie le début du
 texte d'une page avec chaque ligne de résultat plutôt que la page entière, si
 bien que les mots cherchés se trouvent souvent plus bas que ce texte ne va.
-`words_located` indique lequel des deux cas s'est produit : vrai et le passage
-est centré sur les mots, faux et c'est le début du feuillet. Suivez `source_url`
-pour la suite.
+Chaque correspondance porte `excerpt_kind`, et chaque extrait en porte
+l'étiquette dans le bloc de texte :
+
+- **`passage`** : le texte autour des mots correspondants, centré sur eux.
+- **`page_opening`** : le début du feuillet, renvoyé parce que le texte reçu
+  s'arrête avant que les mots cherchés n'apparaissent. Il ne porte pas la
+  correspondance, donc le citer revient à citer autre chose. Les notes comptent
+  combien il y en a, et `source_url` ouvre le feuillet avec la requête
+  appliquée.
 
 **Le texte numérisé est lu par une machine.** Les extraits en portent les
 fautes. Citez-les comme tels et suivez le lien.

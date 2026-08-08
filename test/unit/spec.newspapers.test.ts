@@ -96,6 +96,7 @@ describe("search_newspapers · the envelope the contract names", () => {
       "creator",
       "year",
       "excerpts",
+      "excerpt_kind",
       "source_url",
       "page_number",
       "published_on",
@@ -137,22 +138,6 @@ describe("search_newspapers · a count means what its name says", () => {
 });
 
 describe("search_newspapers · the excerpt is never sold as the matched passage", () => {
-  it("reports words_located false when the returned text does not carry the words", async () => {
-    const { result } = await search(
-      newspapersPayload([newspaperRow({ description: [PAGE_WITHOUT_WORDS] })]),
-    );
-    const [hit] = structured<Envelope>(result).hits;
-    expect(hit?.words_located).toBe(false);
-  });
-
-  it("reports words_located true when it does", async () => {
-    const { result } = await search(
-      newspapersPayload([newspaperRow({ description: [PAGE_WITH_WORDS] })]),
-    );
-    const [hit] = structured<Envelope>(result).hits;
-    expect(hit?.words_located).toBe(true);
-  });
-
   it("names no field as though the excerpt were the passage that matched", async () => {
     const { result } = await search(
       newspapersPayload([newspaperRow({ description: [PAGE_WITHOUT_WORDS] })]),
@@ -192,13 +177,13 @@ describe("search_newspapers · the excerpt is never sold as the matched passage"
   });
 
   it("states in the tool description what the returned text actually is", () => {
-    expect(searchNewspapersDescription).toMatch(/opening of a page|opening of the page/i);
-    expect(searchNewspapersDescription).toMatch(/words_located/);
+    expect(searchNewspapersDescription).toMatch(/start of the page/i);
+    expect(searchNewspapersDescription).toMatch(/does not carry the match/i);
   });
 
   it("states the same thing in the server instructions a model reads first", () => {
-    expect(INSTRUCTIONS).toMatch(/words_located/);
-    expect(INSTRUCTIONS).toMatch(/opening of that page|opening of the page/i);
+    expect(INSTRUCTIONS).toMatch(/start of the page/i);
+    expect(INSTRUCTIONS).toMatch(/does not carry the match/i);
   });
 
   it("declares the excerpt as machine-read text rather than as the match", () => {
@@ -211,6 +196,102 @@ describe("search_newspapers · the excerpt is never sold as the matched passage"
     const { result } = await search(newspapersPayload([newspaperRow()]));
     expect(structured<Envelope>(result).notes.join(" ")).toMatch(/optical|machine read/i);
     expect(textOf(result)).toMatch(/machine read/i);
+  });
+});
+
+describe("search_newspapers · the kind of every excerpt travels with it", () => {
+  it("names the excerpt an opening when the returned text does not carry the words", async () => {
+    const { result } = await search(
+      newspapersPayload([newspaperRow({ description: [PAGE_WITHOUT_WORDS] })]),
+    );
+    const [hit] = structured<Envelope>(result).hits;
+    expect(hit?.excerpt_kind).toBe("page_opening");
+  });
+
+  it("names it a passage when the words were found in that text", async () => {
+    const { result } = await search(
+      newspapersPayload([newspaperRow({ description: [PAGE_WITH_WORDS] })]),
+    );
+    const [hit] = structured<Envelope>(result).hits;
+    expect(hit?.excerpt_kind).toBe("passage");
+  });
+
+  it("declares the two kinds and what each of them is", () => {
+    const declared = searchNewspapersOutput.shape.hits.element.shape.excerpt_kind;
+    expect(declared.options).toEqual(["passage", "page_opening"]);
+    expect(declared.description ?? "").toMatch(/does not carry the match/i);
+  });
+
+  it("marks the excerpt itself in the text block, so it cannot be read as the match", async () => {
+    const { result } = await search(
+      newspapersPayload([newspaperRow({ description: [PAGE_WITHOUT_WORDS] })]),
+    );
+    const excerptLine = textOf(result)
+      .split("\n")
+      .find((line) => line.includes("ORCHARD DAILY REVIEW"));
+    expect(excerptLine).toBeDefined();
+    expect(excerptLine).toMatch(/\[page opening\]/i);
+  });
+
+  it("marks a real passage as one, so the two are told apart without reading a note", async () => {
+    const { result } = await search(
+      newspapersPayload([
+        newspaperRow({ description: [PAGE_WITHOUT_WORDS] }),
+        newspaperRow({ description: [PAGE_WITH_WORDS] }),
+      ]),
+    );
+    const text = textOf(result);
+    expect(text).toMatch(/\[page opening\]/i);
+    expect(text).toMatch(/\[passage\]/i);
+  });
+
+  it("names the kind with one field rather than leaving a second one to disagree", async () => {
+    const { result } = await search(newspapersPayload([newspaperRow()]));
+    const [hit] = structured<Envelope>(result).hits;
+    expect(hit).not.toHaveProperty("words_located");
+  });
+
+  it("names excerpt_kind in the tool description and in the server instructions", () => {
+    expect(searchNewspapersDescription).toMatch(/excerpt_kind/);
+    expect(searchNewspapersDescription).toMatch(/page_opening/);
+    expect(INSTRUCTIONS).toMatch(/excerpt_kind/);
+    expect(INSTRUCTIONS).toMatch(/page_opening/);
+  });
+});
+
+describe("search_newspapers · what quoting a phrase does, as the Library does it", () => {
+  const PROMISE = /match(es|ed)? it whole|as a whole phrase|exact phrase|phrase exactly/i;
+
+  it("promises no exact-phrase match in the tool description", () => {
+    expect(searchNewspapersDescription).not.toMatch(PROMISE);
+  });
+
+  it("promises no exact-phrase match in the server instructions", () => {
+    expect(INSTRUCTIONS).not.toMatch(PROMISE);
+  });
+
+  it("says quoting narrows the search without deciding how the Library matches", () => {
+    expect(searchNewspapersDescription).toMatch(/narrow/i);
+    expect(searchNewspapersDescription).toMatch(/apart|separately|order/i);
+  });
+
+  it("warns on a quoted query that a match may not carry the phrase as written", async () => {
+    const { result } = await search(newspapersPayload([newspaperRow()]));
+    const note = structured<Envelope>(result).notes.find((line) => /guarantee/i.test(line)) ?? "";
+    expect(note).toMatch(/double quotes/i);
+    expect(textOf(result)).toMatch(/guarantee/i);
+  });
+
+  it("keeps that warning off a query carrying no quotes", async () => {
+    const { result } = await search(newspapersPayload([newspaperRow()]), {
+      query: "lamps went out",
+    });
+    expect(structured<Envelope>(result).notes.join(" ")).not.toMatch(/guarantee/i);
+  });
+
+  it("keeps that warning off an answer with no rows at all", async () => {
+    const { result } = await search(newspapersPayload([], paging(0, 2)));
+    expect(structured<Envelope>(result).notes.join(" ")).not.toMatch(/guarantee/i);
   });
 });
 
