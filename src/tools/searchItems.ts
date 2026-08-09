@@ -12,22 +12,24 @@
  */
 
 import { z } from "zod";
-import type { LocClient } from "../loc/client.js";
+import type { LocClient, Read } from "../loc/client.js";
 import { FORMAT_ROUTES } from "../loc/paths.js";
 import type { FacetField } from "../loc/paths.js";
-import type { Facets } from "../loc/urls.js";
+import type { CatalogueQuery, Facets } from "../loc/urls.js";
+import type { SearchResults } from "../types.js";
 import { strictInput } from "./arguments.js";
-import { ok, recordSchema, renderRecords, toToolError } from "./shared.js";
+import { agrees, counted, ok, recordSchema, renderRecords, toToolError } from "./shared.js";
 import type { ToolResult } from "./shared.js";
-import { invalidInput } from "../errors.js";
+import { LocError, invalidInput } from "../errors.js";
 
 export const searchItemsDescription = [
   "Search the Library of Congress catalogue: books, photographs, maps, recordings, films, manuscripts, sheet music and newspaper titles.",
   "'media_type' is required, because the Library keeps a separate catalogue for each kind of thing.",
   "This matches titles, creators and catalogue descriptions. It does not read the text inside a scan; use search_newspapers for a phrase printed on a newspaper page.",
-  "'subject', 'location', 'language' and 'collection' take the words the Library itself uses, as they appear on the rows this tool returns. A filter matching nothing is dropped and the answer says so.",
+  "Filters take the words the Library itself uses: 'subject' and 'location' as the rows here spell them, 'language' written in English, 'collection' as list_collections reports it under 'collection_filter'.",
+  "A filter matching nothing is set aside and the search asked again without it; the answer names what was dropped, and the count it reports is then the unfiltered search's.",
   "By default only material with a digitised copy is returned; set 'online_only' to false to take in records the Library holds on a shelf alone.",
-  "Every row carries an 'identifier', which get_item takes.",
+  "A row carries an 'identifier' get_item takes when it names a record. A row that is a collection the Library gathered names no record: 'is_collection' is true there, 'identifier' is null, and 'source_url' opens the collection.",
 ].join(" ");
 
 const mediaTypes = FORMAT_ROUTES as [string, ...string[]];
@@ -37,7 +39,9 @@ export const searchItemsInput = strictInput({
     .string()
     .min(1)
     .max(300)
-    .describe("Words to look for in titles, creators and catalogue descriptions."),
+    .describe(
+      "Words to look for in titles, creators and catalogue descriptions. The catalogue index holds no word of a single letter, so at least one word has to run to two letters or more, unless it is written in a script where one character is a word.",
+    ),
   media_type: z
     .enum(mediaTypes)
     .describe(
@@ -72,7 +76,9 @@ export const searchItemsOutput = z.object({
   total: z
     .number()
     .int()
-    .describe("Records matching across this catalogue, not the number returned."),
+    .describe(
+      "Records matching across this catalogue for the search the rows come from, not the number returned. A filter that matched nothing is set aside, and this then counts the search without it, which the notes name.",
+    ),
   page: z.number().int(),
   items: z.array(recordSchema),
   notes: z.array(z.string()),
@@ -93,11 +99,83 @@ function describeNarrowing(args: SearchItemsArgs): string[] {
   return written;
 }
 
+/**
+ * Where the Library publishes the wording each filter expects.
+ *
+ * A filter takes the Library's own words, and each kind of filter has its own
+ * place where those words can be read. Sending a caller to a row's fields for a
+ * collection or a language sends them where the wording is not.
+ */
+function whereTheWordingIs(args: SearchItemsArgs): string[] {
+  const advice: string[] = [];
+  if (args.subject) advice.push("a subject is spelled as 'subjects' spells it on a row");
+  if (args.location) advice.push("a place is spelled as 'location' spells it on a row");
+  if (args.language) advice.push('a language is written in English, as in "english"');
+  if (args.collection) {
+    advice.push("a collection is spelled as list_collections reports it under 'collection_filter'");
+  }
+  return advice;
+}
+
+/**
+ * A word the catalogue index can be asked for.
+ *
+ * The index holds no word of a single letter: a query made only of such words
+ * comes back with nothing whatever the Library holds, and the same query with
+ * one longer word beside them returns exactly what that word returns alone.
+ * Answering it with a count of zero would state as a fact about the collection
+ * what is a property of the index.
+ */
+const INDEXED_WORD = /[\p{L}\p{N}]{2,}/u;
+
+/**
+ * A script where one character is a word.
+ *
+ * The index does hold these singly: on the catalogue a Han character alone
+ * matches records, and adding one to a two-character query changes the count.
+ * Measuring a word in characters refuses a written question in these scripts
+ * and calls the refusal a property of the Library.
+ */
+const ONE_CHARACTER_WORD =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
+/**
+ * One catalogue read, with a page beyond the last read for what it is.
+ *
+ * The catalogue answers such a page with a 404, which is otherwise reported as
+ * the Library holding nothing at the address asked for: a claim about an
+ * address on a call that carries none, and about a set of records that exists.
+ * The first page is read instead for how many records match, and the answer is
+ * an empty page of a result set that is there to be paged back into.
+ */
+async function askCatalogue(
+  client: LocClient,
+  query: CatalogueQuery,
+  page: number,
+): Promise<Read<SearchResults>> {
+  try {
+    return await client.searchItems(query);
+  } catch (error) {
+    if (!(error instanceof LocError) || error.code !== "not_found" || page <= 1) throw error;
+    const first = await client.searchItems({ ...query, page: 1 });
+    return { data: { paging: first.data.paging, records: [] }, cached: first.cached };
+  }
+}
+
 export async function runSearchItems(
   client: LocClient,
   args: SearchItemsArgs,
 ): Promise<ToolResult> {
   try {
+    if (!INDEXED_WORD.test(args.query) && !ONE_CHARACTER_WORD.test(args.query)) {
+      return toToolError(
+        invalidInput(
+          `Every word of "${args.query}" is a single letter, and the catalogue index holds no such word, so this query is one the index cannot be asked.`,
+          "Search for a word of at least two characters. A word written as one character, as Han script writes many, is searched as it stands.",
+        ),
+      );
+    }
+
     if (
       args.year_from !== undefined &&
       args.year_to !== undefined &&
@@ -137,17 +215,19 @@ export async function runSearchItems(
     };
 
     const notes: string[] = [];
-    let result = await client.searchItems(narrowed);
+    let result = await askCatalogue(client, narrowed, args.page);
     let narrowingSetAside = false;
 
     // A filter that matches nothing would otherwise be reported as the Library
     // holding nothing on the subject, which is a claim about the collection
     // rather than about the filter.
     if (result.data.paging.resultCount === 0 && narrowing.length > 0) {
-      const wider = await client.searchItems(wide);
+      const wider = await askCatalogue(client, wide, args.page);
       if (wider.data.paging.resultCount > 0) {
+        const advice = whereTheWordingIs(args);
         notes.push(
-          `Nothing matches "${args.query}" with ${narrowing.join(", ")}. Those were set aside and the search was asked again without them, so the rows below are unfiltered. The Library uses its own wording for subjects, places and languages: read 'subjects' and 'location' on a row to see the form it expects.`,
+          `Nothing matches "${args.query}" with ${narrowing.join(", ")}: the search as sent matched none. Those were set aside and the search was asked again without them, so the rows below and the count beside them are the unfiltered search's.` +
+            (advice.length > 0 ? ` The Library uses its own wording: ${advice.join("; ")}.` : ""),
         );
         result = wider;
         narrowingSetAside = true;
@@ -158,16 +238,18 @@ export async function runSearchItems(
     if (cached) notes.push("Served from this server's short-lived in-memory cache.");
     if (skipped) {
       notes.push(
-        `${skipped} row(s) came back in a shape this server could not read and were left out.`,
+        `${counted(skipped, "row")} came back in a shape this server could not read and ${agrees(skipped, "was", "were")} left out.`,
       );
     }
 
     const items = data.records.map((record) => ({
       identifier: record.identifier,
+      is_collection: record.isCollection,
       title: record.title,
       creator: record.creator,
       year: record.year,
       date: record.date,
+      date_code: record.dateCode,
       format: record.format,
       location: record.location,
       subjects: record.subjects,
@@ -176,8 +258,39 @@ export async function runSearchItems(
     }));
 
     const total = data.paging.resultCount;
+    // Every sentence carrying the count names the search it counts, so the
+    // number cannot be read back as the count for the filters that were sent.
+    const withoutNarrowing = narrowingSetAside ? ` without ${narrowing.join(", ")}` : "";
     if (total > items.length) {
-      notes.push(`${total} records match and ${items.length} are shown.`);
+      notes.push(
+        narrowingSetAside
+          ? `${counted(total, "record")} match the search${withoutNarrowing}, and ${items.length} ${agrees(items.length, "is", "are")} shown.`
+          : `${counted(total, "record")} match and ${items.length} ${agrees(items.length, "is", "are")} shown.`,
+      );
+    }
+
+    const gathered = items.filter((item) => item.is_collection).length;
+    if (gathered > 0) {
+      notes.push(
+        `${gathered} of the ${counted(items.length, "row")} shown ${agrees(gathered, "is a collection", "are collections")} the Library gathered and named rather than ${agrees(gathered, "a record", "records")} of the ${args.media_type} catalogue: 'identifier' is null there, get_item has nothing to take, and 'source_url' opens the collection. The count beside the rows is the catalogue's own, and it counts them in.`,
+      );
+    }
+
+    const anonymous = items.filter(
+      (item) => item.identifier === null && !item.is_collection,
+    ).length;
+    if (anonymous > 0) {
+      notes.push(
+        `${counted(anonymous, "row")} shown ${agrees(anonymous, "names", "name")} an address that is not a record: 'identifier' is null there and get_item has nothing to take, so ${agrees(anonymous, "read it at its", "read them at their")} 'source_url'.`,
+      );
+    }
+
+    const coded = items.filter((item) => item.date_code !== null);
+    if (coded.length > 0) {
+      const codes = [...new Set(coded.map((item) => item.date_code))].join(", ");
+      notes.push(
+        `${counted(coded.length, "row")} shown ${agrees(coded.length, "carries", "carry")} no date: the Library files ${agrees(coded.length, "it", "them")} under a cataloguing code standing for digits it has not established, so 'date' and 'year' are null there while 'date_code' holds the code it filed ${agrees(coded.length, "it", "them")} under: ${codes}.`,
+      );
     }
     if (total === 0) {
       notes.push(
@@ -187,7 +300,7 @@ export async function runSearchItems(
     if (items.length === 0 && total > 0) {
       const pages = data.paging.pageCount;
       notes.push(
-        `Page ${args.page} is past the last row. ${total} records match${pages === null ? "" : ` across ${pages} pages at this page size`}, so ask for a lower page.`,
+        `Page ${args.page} is past the last row. ${counted(total, "record")} match${pages === null ? "" : ` across ${counted(pages, "page")} at this page size`}, so ask for a lower page.`,
       );
     }
     if (!narrowingSetAside && (args.year_from !== undefined || args.year_to !== undefined)) {
@@ -203,8 +316,10 @@ export async function runSearchItems(
 
     const body =
       items.length === 0
-        ? `Nothing in the ${args.media_type} catalogue for "${args.query}".`
-        : `${items.length} of ${total} records for "${args.query}":\n${renderRecords(items)}`;
+        ? total > 0
+          ? `Page ${args.page} is past the last of ${counted(total, "record")} the ${args.media_type} catalogue holds for "${args.query}".`
+          : `Nothing in the ${args.media_type} catalogue for "${args.query}".`
+        : `${items.length} of ${counted(total, "record")} for "${args.query}"${withoutNarrowing}:\n${renderRecords(items)}`;
 
     return ok({ query: args.query, total, page: args.page, items, notes }, body, { notes });
   } catch (error) {

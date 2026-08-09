@@ -4,6 +4,12 @@
 export interface RecordSummary {
   /** Opaque, and the string get_item takes. It can carry slashes. */
   identifier: string | null;
+  /**
+   * True when the row is a collection a curator gathered and named rather than
+   * a record of the catalogue that was searched. The item route holds nothing
+   * at a collection's address, so such a row carries no identifier.
+   */
+  isCollection: boolean;
   title: string | null;
   /** Whoever the Library credits: author, photographer, publisher, performer. */
   creator: string | null;
@@ -11,6 +17,11 @@ export interface RecordSummary {
   year: number | null;
   /** The date exactly as published, which is often a range or a phrase. */
   date: string | null;
+  /**
+   * The cataloguing code the Library files the row under in place of a date,
+   * such as `uuuu` or `18??`. Null wherever the filed value is a date.
+   */
+  dateCode: string | null;
   /** What the Library calls the physical thing: book, photo, map, newspaper. */
   format: string | null;
   /** Places the record is catalogued under. */
@@ -83,7 +94,23 @@ export interface ItemDetail {
   title: string | null;
   creator: string | null;
   year: number | null;
+  /**
+   * The date the catalogue files the record under, cut back to the precision
+   * the record's own words support.
+   */
   date: string | null;
+  /**
+   * The cataloguing code the Library files the record under in place of a date,
+   * such as `uuuu` or `18??`. Null wherever the filed value is a date.
+   */
+  dateCode: string | null;
+  /** When the record was made or issued, in the record's own words. */
+  dateStated: string | null;
+  /**
+   * True when the record's own words name a span of years, which makes `date`
+   * the opening of that span rather than a date the record carries.
+   */
+  dateIsSpanOpening: boolean;
   format: string | null;
   /** Every paragraph the Library publishes as the description, joined. */
   description: string | null;

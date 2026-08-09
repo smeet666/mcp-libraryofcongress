@@ -55,7 +55,7 @@ npm and no configuration file to edit.
 | `search_newspapers` | Finds a phrase in the text of scanned newspaper pages.    | `query`, `location`, `publication`, `year_from`, `limit`  |
 | `search_items`      | Searches one catalogue: books, photos, maps, audio, more. | `query`, `media_type`, `subject`, `location`, `year_from` |
 | `get_item`          | Reads one record, section by section.                     | `identifier`, `sections`, `offset`                        |
-| `list_collections`  | The digital collections, with the filter each one takes.  | `limit`, `page`, `max_description_chars`                  |
+| `list_collections`  | The digital collections, with the filter each one takes.  | `limit`, `page`, `searchable_only`                        |
 
 The server is **read-only**. It uploads nothing and writes nothing back.
 
@@ -68,11 +68,15 @@ issue printed these words_. A match comes back with the paper, the date, the
 leaf of the issue, the state it was published in, and an address that opens that
 leaf with the query applied.
 
-Double quotes narrow the search sharply, and the Library decides what they mean:
-a matched page can carry the words apart or in another order rather than the
-phrase as written, so an answer to a quoted query says so and points at the page
-to read. Without quotes the words are matched separately, which finds far more
-again.
+Double quotes change what the search matches, and the Library decides what they
+mean: a matched page can carry the words apart or in another order rather than
+the phrase as written, so an answer to a quoted query says so and points at the
+page to read. What the quotes do to the number of matching pages is the
+Library's own business and varies from one query to the next: measured against
+the corpus, quoting divides the count by a hundred on some queries, moves it by
+a few per cent on others, and raises it above the unquoted count on others
+again. The count is therefore no evidence that the phrase was printed anywhere,
+and both forms are worth asking.
 
 The corpus spans every state and a century and a half, so a bare phrase reaches
 a great deal that a question did not ask for. Three arguments narrow it:
@@ -128,10 +132,23 @@ Narrowing is typed rather than free text: `year_from`, `year_to`, `subject`,
 matches nothing is set aside, the search is asked again without it, and the
 answer names what was dropped, so a narrowing that spelled a subject the Library
 words differently is reported as a spelling that found nothing rather than as
-the Library holding nothing on it.
+the Library holding nothing on it. Every sentence carrying the count then names
+the search without the filter, since that is the search the rows and the count
+come from.
 
 By default only material with a digitised copy comes back. `online_only: false`
 takes in the records the Library holds on a shelf alone.
+
+**The catalogue index holds no word of a single letter.** A query made only of
+such words matches nothing whatever the Library holds, and the same query with
+one longer word beside them returns exactly what that longer word returns alone.
+`search_items` refuses it as invalid input and names the reason, since a count
+of zero would read as a statement about the collection. A word written as one
+character, as Han, Japanese and Korean script write many, is a word the index
+does hold, and it is searched as it stands. The full-text index behind
+`search_newspapers` is a different index and does hold single characters,
+answering each with a set of its own, so `search_newspapers` searches for one
+rather than refusing it.
 
 ## Reading a record, and finding a corpus
 
@@ -143,10 +160,61 @@ full field list are each larger than the record they describe. A long
 description paginates by character offset and resumes at a line boundary: when
 `next_offset` is not null, call again with `offset` set to it.
 
+**A malformed identifier is refused rather than answered.** An identifier that
+climbs out of the item route, or one carrying a control character, is
+`invalid_input` before any address is built. The refusal for a control character
+names no identifier: those characters are the ones a terminal, a log and a chat
+window do not draw, so printing the value back would show a different spelling
+from the one that was sent.
+
+**The same words are not returned twice.** The Library assembles the description
+of some records by running the notes it holds on them together. A note whose
+words the description already carries is left to the description, so
+`notes_on_record` holds what the description does not.
+
+**A row says whether it is a record or a collection.** A catalogue search
+returns, beside its records, the corpora a curator gathered and named, and the
+Library's count of what matches counts them in. Such a row carries
+`is_collection: true`, its `identifier` is null because the item route holds
+nothing at a collection's address, and `source_url` opens the collection. A row
+carrying no identifier says so where the others print theirs, and the notes
+count both kinds.
+
+**A cataloguing code is not a date.** Where the Library has established no date
+it files a record under a code standing in for the digits, `uuuu` for an unknown
+year and `18??` for a year known only to its century. `date` and `year` are null
+for such a record, `date_code` carries the code under a name saying what it is,
+and the notes say no date has been established.
+
+**A date carries only the precision the record supports.** The catalogue files
+every record under one sortable date and fills what the record leaves unsaid: a
+record whose own words say `1925` is filed at `1925-01-01`, and a piece of a
+series is filed at the opening of the span the series covers. `date` is cut back
+to the precision those words support, in a catalogue row as in a record read on
+its own: the filed value is kept whole only where the words name the month it is
+filed under, so a photograph the record dates `1934 May 8.` and the catalogue
+files at `1934-01-01` comes back as `1934`. A month word counts only where a day
+or a year stands beside it, and a year with two digits after a hyphen names a
+month only when that year is the one the record is filed under, so `1908-09`
+beside a record filed at 1908 reads as 1908 to 1909. `date_stated` repeats the
+words themselves, and a record whose words
+write out a span of years and open it on the filed year carries a note saying
+that `date` and `year` are where the catalogue sorts it. A year the words state
+outright is a date of the record, whatever ranges sit beside it.
+
 `list_collections` shows the bodies of material a curator chose, described and
 published together, so a caller can see what is there before searching. Each row
-carries `collection_filter`, which is the wording `search_items` takes as its
-`collection` argument.
+carries `collection_filter`, the wording `search_items` takes as its
+`collection` argument, beside `searchable_media_types`, the catalogues that
+filter can be sent to. The Library gathers kinds of thing the catalogue search
+is not divided into, web archives and periodicals among them: such a collection
+names no `media_type`, says so with an empty list, and `searchable_only` leaves
+those rows out. The corpus runs to hundreds of collections and pages: the answer
+offers the next page only where the Library has one, says when the last has been
+reached and how many pages the corpus runs to at the size asked for, and reads a
+page past the last as an empty page of a corpus that exists. `page` stops at
+100, so at a small `limit` the answer says how many collections that ceiling
+reaches and that raising `limit` brings the rest within reach.
 
 ## What the answers claim
 
@@ -337,7 +405,7 @@ configuration à modifier.
 | `search_newspapers` | Trouve une phrase dans le texte des pages de journaux numérisées. | `query`, `location`, `publication`, `year_from`, `limit`  |
 | `search_items`      | Cherche un catalogue : livres, photos, cartes, sons, et le reste. | `query`, `media_type`, `subject`, `location`, `year_from` |
 | `get_item`          | Lit une fiche, section par section.                               | `identifier`, `sections`, `offset`                        |
-| `list_collections`  | Les collections numériques, avec le filtre que chacune accepte.   | `limit`, `page`, `max_description_chars`                  |
+| `list_collections`  | Les collections numériques, avec le filtre que chacune accepte.   | `limit`, `page`, `searchable_only`                        |
 
 Le serveur est **en lecture seule**. Il ne téléverse rien et n'écrit rien.
 
@@ -351,12 +419,16 @@ mots_. Une correspondance revient avec le journal, la date, le feuillet du
 numéro, l'État de publication, et une adresse qui ouvre ce feuillet avec la
 requête appliquée.
 
-Les guillemets doubles resserrent fortement la recherche, et c'est la Library
+Les guillemets doubles changent ce que la recherche retient, et c'est la Library
 qui décide de ce qu'ils veulent dire : une page retenue peut porter les mots
 éloignés les uns des autres ou dans un autre ordre plutôt que la phrase telle
 qu'elle est écrite. La réponse à une requête entre guillemets le dit et renvoie
-à la page à lire. Sans guillemets, les mots sont cherchés séparément, ce qui
-trouve bien plus encore.
+à la page à lire. Ce que les guillemets font au nombre de pages retenues
+appartient à la Library et varie d'une requête à l'autre : mesuré sur le corpus,
+le compte est divisé par cent sur certaines requêtes, bouge de quelques pour
+cent sur d'autres, et dépasse le compte sans guillemets sur d'autres encore. Ce
+compte ne prouve donc pas que la phrase ait été imprimée quelque part, et les
+deux formes valent d'être posées.
 
 Le corpus couvre tous les États et un siècle et demi : une phrase seule ramène
 donc beaucoup de choses que la question ne demandait pas. Trois arguments la
@@ -415,10 +487,24 @@ Le filtrage est typé plutôt que textuel : `year_from`, `year_to`, `subject`,
 `location`, `language`, `collection`, `online_only`, `sort`. Un filtre qui ne
 correspond à rien est mis de côté, la recherche est relancée sans lui, et la
 réponse nomme ce qui a été écarté : une orthographe différente de celle de la
-Library est ainsi signalée comme telle, et non comme un fonds vide.
+Library est ainsi signalée comme telle, et non comme un fonds vide. Chaque
+phrase qui porte le total nomme alors la recherche sans le filtre, puisque c'est
+d'elle que viennent les lignes et le compte.
 
 Par défaut, seuls les documents disposant d'une copie numérisée reviennent.
 `online_only: false` inclut les fiches que la Library ne conserve qu'en rayon.
+
+**L'index du catalogue ne retient aucun mot d'une seule lettre.** Une requête
+composée uniquement de tels mots ne correspond à rien, quoi que la Library
+détienne, et la même requête accompagnée d'un mot plus long rend exactement ce
+que ce mot rend seul. `search_items` la refuse en `invalid_input` en donnant la
+raison, car un total de zéro se lirait comme une affirmation sur le fonds. Un
+mot qui s'écrit d'un seul caractère, comme les écritures han, japonaise et
+coréenne en comptent beaucoup, est un mot que l'index retient : il est cherché
+tel quel. L'index plein texte derrière `search_newspapers` est un autre index,
+qui retient bel et bien les caractères isolés et répond à chacun par un ensemble
+qui lui est propre : `search_newspapers` cherche un tel caractère au lieu de le
+refuser.
 
 ## Lire une fiche, et trouver un corpus
 
@@ -431,10 +517,63 @@ qu'elles décrivent. Une description longue se pagine par décalage de caractèr
 et reprend à une fin de ligne : quand `next_offset` n'est pas nul, rappelez
 l'outil avec `offset` réglé sur cette valeur.
 
+**Un identifiant mal formé est refusé, pas répondu.** Un identifiant qui sort de
+la route des fiches, ou qui porte un caractère de contrôle, est `invalid_input`
+avant qu'aucune adresse ne soit construite. Le refus lié à un caractère de
+contrôle ne cite aucun identifiant : ces caractères sont ceux qu'un terminal, un
+journal ou une fenêtre de discussion ne dessinent pas, et le réimprimer
+montrerait une graphie différente de celle qui a été envoyée.
+
+**Les mêmes mots ne sont pas rendus deux fois.** La Library compose la
+description de certaines fiches en mettant bout à bout les notes qu'elle tient
+sur elles. Une note dont la description porte déjà les mots est laissée à la
+description : `notes_on_record` tient ce que la description ne porte pas.
+
+**Une ligne dit si elle est une fiche ou une collection.** Une recherche
+catalogue rend, à côté de ses fiches, les corpus qu'un conservateur a réunis et
+nommés, et le compte que la Library publie les inclut. Une telle ligne porte
+`is_collection: true`, son `identifier` est null parce que la route des fiches
+ne détient rien à l'adresse d'une collection, et `source_url` l'ouvre. Une ligne
+sans identifiant l'énonce là où les autres impriment le leur, et les notes
+comptent les deux cas.
+
+**Un code de catalogage n'est pas une date.** Là où la Library n'a établi
+aucune date, elle range la fiche sous un code qui tient lieu de chiffres :
+`uuuu` pour une année inconnue, `18??` pour une année connue au siècle près.
+`date` et `year` sont null pour une telle fiche, `date_code` porte le code sous
+un nom qui dit ce qu'il est, et les notes disent qu'aucune date n'est établie.
+
+**Une date ne porte que la précision que la fiche soutient.** Le catalogue range
+chaque fiche sous une date unique et comble ce que la fiche laisse de côté : une
+fiche dont les mots disent `1925` est rangée au `1925-01-01`, et une pièce d'un
+fonds est rangée à l'ouverture de la période que ce fonds couvre. `date` est
+ramenée à la précision que ces mots soutiennent, dans une ligne de résultat
+comme dans une fiche lue seule : la valeur de rangement n'est gardée entière que
+si les mots nomment le mois sous lequel la fiche est rangée, si bien qu'une
+photographie que la fiche date du `1934 May 8.` et que le catalogue range au
+`1934-01-01` revient en `1934`. Un nom de mois ne compte que si un jour ou une
+année l'accompagne, et une année suivie de deux chiffres après un tiret ne nomme
+un mois que si cette année est celle du rangement : `1908-09` à côté d'une fiche
+rangée en 1908 se lit 1908 à 1909. `date_stated` reprend les mots eux-mêmes, et une
+fiche dont les mots écrivent une période et l'ouvrent sur l'année de rangement
+porte une note disant que `date` et `year` sont l'endroit où le catalogue la
+classe. Une année que les mots énoncent en toutes lettres est une date de la
+fiche, quelles que soient les fourchettes qui l'accompagnent.
+
 `list_collections` montre les ensembles qu'un conservateur a choisis, décrits et
 publiés ensemble, pour voir ce qui existe avant de chercher. Chaque ligne porte
 `collection_filter`, la formulation exacte que `search_items` accepte dans son
-argument `collection`.
+argument `collection`, et `searchable_media_types`, les catalogues auxquels ce
+filtre peut être adressé. La Library réunit des types de documents que la
+recherche catalogue ne découpe pas, les archives du web et les périodiques parmi
+eux : une telle collection ne nomme aucun `media_type`, le dit par une liste
+vide, et `searchable_only` écarte ces lignes. Le corpus compte plusieurs
+centaines de collections et se pagine : la réponse ne propose la page suivante
+que là où la Library en a une, dit quand la dernière est atteinte et sur combien
+de pages le corpus court à la taille demandée, et lit une page au-delà de la
+dernière comme une page vide d'un corpus qui existe. `page` s'arrête à 100 :
+à faible `limit`, la réponse dit combien de collections ce plafond atteint et
+que relever `limit` met le reste à portée.
 
 ## Ce que les réponses affirment
 

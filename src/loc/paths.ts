@@ -34,6 +34,40 @@ export type FormatRoute = keyof typeof FORMAT_ROUTE;
 
 export const FORMAT_ROUTES = Object.keys(FORMAT_ROUTE) as FormatRoute[];
 
+/**
+ * The catalogue each word a collection uses for its formats names.
+ *
+ * A collection states the kinds of thing it gathers in the Library's own
+ * words, and the same catalogue is written more than one way among them. A
+ * word absent from this table names none of the catalogues the search is
+ * divided into, and web archives and periodicals are two such kinds: the
+ * Library gathers them and keeps no format route for either.
+ */
+export const COLLECTION_FORMAT_ROUTE: Record<string, FormatRoute> = {
+  ...(Object.fromEntries(FORMAT_ROUTES.map((route) => [route, route])) as Record<
+    string,
+    FormatRoute
+  >),
+  photographs: "photos",
+  "prints-and-photographs": "photos",
+  video: "film-and-videos",
+  "film-and-video": "film-and-videos",
+  "film-an-videos": "film-and-videos",
+};
+
+/**
+ * The catalogues a set of collection formats names, in the order the routes are
+ * declared so two collections describing the same holdings answer alike.
+ */
+export function routesNamedBy(formats: readonly string[]): FormatRoute[] {
+  const named = new Set<FormatRoute>();
+  for (const format of formats) {
+    const route = COLLECTION_FORMAT_ROUTE[format.trim().toLowerCase()];
+    if (route) named.add(route);
+  }
+  return FORMAT_ROUTES.filter((route) => named.has(route));
+}
+
 /** Digitised newspaper pages, whose text is what search_newspapers reads. */
 export const NEWSPAPER_PAGES_ROUTE = "/collections/chronicling-america/";
 
@@ -121,6 +155,10 @@ export const ROW_FIELD = {
   description: "description",
   partOf: "partof",
   digitized: "digitized",
+  /** The record block a search row nests, written the way the item route writes it. */
+  item: "item",
+  /** The years the index files the row under, one entry per span or year. */
+  dateSpans: "dates",
   /** Newspaper pages only, from here down. */
   pageNumber: "number_page",
   publicationTitle: "partof_title",
@@ -136,7 +174,12 @@ export const ITEM_FIELD = {
   id: "id",
   url: "url",
   title: "title",
+  /** One sortable date per record, which the index fills where a record is vague. */
   date: "date",
+  /** When the record was made or issued, in the record's own words. */
+  createdPublished: "created_published",
+  /** The years the index files the record under, one entry per span or year. */
+  dateSpans: "dates",
   contributorNames: "contributor_names",
   description: "description",
   notes: "notes",

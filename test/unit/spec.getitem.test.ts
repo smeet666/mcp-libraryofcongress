@@ -336,3 +336,216 @@ describe("get_item · weight", () => {
     expect(textOf(result)).toMatch(/Source: Library of Congress/);
   });
 });
+
+describe("get_item · a date the record does not carry", () => {
+  /** A record whose own words state a year, filed by the index at the first of January. */
+  const YEAR_ONLY = {
+    date: "1925-01-01",
+    created_published: ["1925."],
+    dates: [{ "1925": "https://www.loc.gov/search/?dates=1925/1925&fo=json" }],
+  };
+
+  /** A piece of a series, filed at the opening of the span the series covers. */
+  const SERIES_SPAN = {
+    title:
+      "Speeches and Writings, 1848-1902; Articles; Undated; “Shall Women Ride the Bicycle?” undated",
+    date: "1848-01-01",
+    created_published: ["1848 - 1902"],
+    dates: [{ "1848 to 1902": "https://www.loc.gov/search/?dates=1848/1902&fo=json" }],
+  };
+
+  /** An issue of a newspaper, whose own words state the day it was printed. */
+  const STATED_DAY = {
+    date: "1929-02-03",
+    created_published: ["Washington, D.C., February 3, 1929"],
+    dates: [{ "1929-02-03": "https://www.loc.gov/search/?dates=1929-02-03&fo=json" }],
+  };
+
+  it("publishes no day and month on a record whose own words state a year alone", async () => {
+    const result = await read(itemPayload(YEAR_ONLY));
+    const body = structured<Detail>(result);
+    expect(body.item.date).toBe("1925");
+    expect(body.item.year).toBe(1925);
+    expect(textOf(result)).not.toContain("1925-01-01");
+  });
+
+  it("keeps a day the record's own words state", async () => {
+    const result = await read(itemPayload(STATED_DAY));
+    expect(structured<Detail>(result).item.date).toBe("1929-02-03");
+  });
+
+  it("leaves the filed date alone when the record states nothing to read it against", async () => {
+    const result = await read(itemPayload({ date: "1971-06-04" }));
+    expect(structured<Detail>(result).item.date).toBe("1971-06-04");
+  });
+
+  it("returns the record's own words about its date", async () => {
+    const result = await read(itemPayload(SERIES_SPAN));
+    expect(structured<Detail>(result).item.date_stated).toBe("1848 - 1902");
+  });
+
+  it("calls no date a span opening unless the record's words open on it", async () => {
+    const result = await read(
+      itemPayload({
+        date: "1971-01-01",
+        created_published: ["New York: a press, 1971 [copyright 1969]"],
+      }),
+    );
+    const body = structured<Detail>(result);
+    expect(body.item.date).toBe("1971");
+    expect(body.notes.join(" ")).not.toMatch(/opening of that span/i);
+  });
+
+  /**
+   * A record naming one date for the thing itself and a range for a later
+   * printing. The filed year is the first year the words mention, and it is a
+   * date the record states outright.
+   */
+  const STATED_YEAR_BESIDE_A_RANGE = {
+    date: "1864-01-01",
+    created_published: ["photographed 1864, [printed between 1880 and 1889]"],
+    dates: [{ "1864": "https://www.loc.gov/search/?dates=1864/1864&fo=json" }],
+  };
+
+  it("does not deny a year the record states outright beside a range of others", async () => {
+    const result = await read(itemPayload(STATED_YEAR_BESIDE_A_RANGE));
+    const body = structured<Detail>(result);
+    expect(body.item.date).toBe("1864");
+    expect(body.notes.join(" ")).not.toMatch(/opening of that span/i);
+    expect(textOf(result)).not.toMatch(/neither is a date the record carries/i);
+  });
+
+  it("says the year is the opening of a span rather than a date the record carries", async () => {
+    const result = await read(itemPayload(SERIES_SPAN));
+    const body = structured<Detail>(result);
+    expect(body.item.date).toBe("1848");
+    const note = body.notes.join(" ");
+    expect(note).toContain("1848 - 1902");
+    expect(note).toMatch(/opening of|span|range/i);
+    expect(textOf(result)).toContain("1848 - 1902");
+  });
+});
+
+/**
+ * A record the Library has established no year for is filed under a
+ * cataloguing code standing in for the digits. Printed where every other record
+ * shows a year, that code reads as the date of the thing.
+ */
+describe("get_item · a cataloguing code where a date belongs", () => {
+  const FILED_UNDER_A_CODE = {
+    date: "18??",
+    created_published: ["Philadelphia : Geo. Willig, [18--]"],
+    dates: [{ "1800": "https://www.loc.gov/search/?dates=1800/1800&fo=json" }],
+  };
+
+  it("publishes no cataloguing code as the date of the record", async () => {
+    const result = await read(itemPayload(FILED_UNDER_A_CODE));
+    const body = structured<Detail>(result);
+    expect(body.item.date).toBeNull();
+    expect(body.item.year).toBeNull();
+  });
+
+  it("keeps the code out of the prose and says no year is established", async () => {
+    const result = await read(itemPayload(FILED_UNDER_A_CODE));
+    expect(textOf(result)).not.toContain("(18??)");
+    expect(structured<Detail>(result).notes.join(" ")).toMatch(/has not established/i);
+  });
+
+  it("still repeats the record's own words about when it was made", async () => {
+    const result = await read(itemPayload(FILED_UNDER_A_CODE));
+    expect(structured<Detail>(result).item.date_stated).toContain("[18--]");
+  });
+
+  it("hands the code back under a name saying what it is", async () => {
+    const result = await read(itemPayload(FILED_UNDER_A_CODE));
+    expect(structured<Detail>(result).item.date_code).toBe("18??");
+  });
+});
+
+/**
+ * A record identifier the Library publishes is printable. One carrying a
+ * control character is a malformed identifier, in the same family as one
+ * carrying a relative path segment, and both belong on the same side of the
+ * error taxonomy: the request is the thing at fault, not the catalogue.
+ *
+ * The refusal names no identifier. The characters at fault are the ones a
+ * terminal, a log or a chat client does not show, so printing the identifier
+ * back would print a spelling that differs from the one that was sent, and the
+ * reader would be told their input is wrong while looking at something that
+ * looks right.
+ */
+describe("get_item · a malformed identifier is refused, not answered", () => {
+  const CONTROL_CHARACTER = String.fromCharCode(1);
+
+  async function refuse(identifier: string): Promise<{ result: ToolShape; urls: string[] }> {
+    const recorder = recordingFetch(() => jsonResponse(itemPayload()));
+    const result = (await settle(
+      runGetItem(client(recorder.fetchImpl), getItemInput.parse({ identifier })),
+    )) as ToolShape;
+    return { result, urls: recorder.urls };
+  }
+
+  it("refuses an identifier carrying a control character as invalid_input", async () => {
+    const { result, urls } = await refuse(`2017${CONTROL_CHARACTER}645459`);
+    expect(errorCode(result)).toBe("invalid_input");
+    expect(urls).toEqual([]);
+  });
+
+  it("says a control character is what is at fault", async () => {
+    const { result } = await refuse(`2017${CONTROL_CHARACTER}645459`);
+    expect(textOf(result)).toMatch(/control character/i);
+  });
+
+  it("quotes no identifier back, and no control character with it", async () => {
+    const { result } = await refuse(`2017${CONTROL_CHARACTER}645459`);
+    const text = textOf(result);
+    expect(text).not.toContain("2017");
+    expect(text).not.toContain("645459");
+    expect(text).not.toContain(CONTROL_CHARACTER);
+  });
+
+  it("refuses a relative path segment the same way", async () => {
+    const { result, urls } = await refuse("../../search");
+    expect(errorCode(result)).toBe("invalid_input");
+    expect(urls).toEqual([]);
+  });
+});
+
+/**
+ * A record can publish the same words twice: the Library assembles the
+ * description of some records out of the notes it holds on them, so the two
+ * fields come back carrying one text between them. Handing both back spends a
+ * caller's budget on a paragraph they already hold.
+ */
+describe("get_item · the same words are not returned twice", () => {
+  const NOTES = ["Hard rock songs.", "Title from disc label.", "Recorded live in Buenos Aires."];
+
+  it("leaves a note out of notes_on_record when the description carries its words", async () => {
+    const result = await read(itemPayload({ description: [NOTES.join(" ")], notes: NOTES }));
+    const body = structured<Detail & { notes_on_record: string[] }>(result);
+    expect(body.description).toBe(NOTES.join(" "));
+    expect(body.notes_on_record).toEqual([]);
+  });
+
+  it("keeps a note the description does not carry", async () => {
+    const result = await read(
+      itemPayload({
+        description: ["Hard rock songs."],
+        notes: ["Hard rock songs.", "Gift; State Historical Society; 1949."],
+      }),
+    );
+    const body = structured<Detail & { notes_on_record: string[] }>(result);
+    expect(body.notes_on_record).toEqual(["Gift; State Historical Society; 1949."]);
+  });
+
+  it("keeps every note when the record publishes no description", async () => {
+    const result = await read(itemPayload({ description: [], notes: NOTES }));
+    const body = structured<Detail & { notes_on_record: string[] }>(result);
+    expect(body.notes_on_record).toEqual(NOTES);
+  });
+
+  it("says in the schema what notes_on_record holds", () => {
+    const declared = getItemOutput.shape.notes_on_record.description ?? "";
+    expect(declared).toMatch(/description already carries|already carries/i);
+  });
+});

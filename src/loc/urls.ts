@@ -33,6 +33,9 @@ export const YEAR_BOUND = { earliest: 1000, latest: 9999 } as const;
 
 export type Facets = Partial<Record<FacetField, string>>;
 
+/** The C0 and C1 ranges and the delete character, which no address carries. */
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/;
+
 export interface CatalogueQuery {
   query: string;
   format: FormatRoute;
@@ -142,6 +145,18 @@ export function collectionsUrl(limit: number, page: number): string {
  * separators survive while the segments cannot open a path of their own.
  */
 export function itemDocumentUrl(identifier: string): string {
+  // Percent-encoding carries a control character into the address, where the
+  // site answers for an identifier nobody publishes. The refusal names no
+  // identifier: the characters at fault are the ones a terminal, a log and a
+  // chat window do not draw, so quoting the value back would show a spelling
+  // that differs from the one that was sent.
+  if (CONTROL_CHARACTER.test(identifier.trim())) {
+    throw invalidInput(
+      "That identifier carries a control character, and no identifier the Library publishes holds one. It is left unquoted here, since printing it would show a different spelling from the one that was sent.",
+      "Take the identifier from a search result rather than building one.",
+    );
+  }
+
   const segments = identifier
     .trim()
     .replace(/^\/+|\/+$/g, "")
@@ -165,17 +180,8 @@ export function itemDocumentUrl(identifier: string): string {
   return url.toString();
 }
 
-/**
- * The identifier inside an address the site published.
- *
- * A row points at `/item/<id>/`, at `/resource/<paper>/<date>/<edition>/` for a
- * newspaper page, at `/collections/<slug>/` for a collection, or at an LCCN
- * host for a catalogue record with no digitised copy. All four name something
- * the item route can read. An address in none of those shapes yields null
- * rather than a guess, since an identifier that does not resolve sends the next
- * call to a page that does not exist.
- */
-export function identifierFrom(address: string | null): string | null {
+/** The path segments of an address the site published, or null. */
+function segmentsOf(address: string | null): { host: string; segments: string[] } | null {
   if (!address) return null;
   const trimmed = address.trim();
   if (trimmed === "") return null;
@@ -191,17 +197,43 @@ export function identifierFrom(address: string | null): string | null {
 
   const path = parsed.pathname.replace(/^\/+|\/+$/g, "");
   if (path === "") return null;
-  const segments = path.split("/");
+  return { host: parsed.hostname, segments: path.split("/") };
+}
 
-  if (parsed.hostname === "lccn.loc.gov") return segments[0] ?? null;
+/**
+ * The identifier inside an address the site published.
+ *
+ * A record is addressed at `/item/<id>/`, a newspaper page at
+ * `/resource/<paper>/<date>/<edition>/`, and a catalogue record with no
+ * digitised copy on an LCCN host. Those three name something the item route
+ * reads. An address in another shape yields null rather than a guess: a
+ * collection has a route of its own and the item route holds nothing at its
+ * slug, so carrying that slug as an identifier hands the next call an address
+ * the Library answers as missing.
+ */
+export function identifierFrom(address: string | null): string | null {
+  const parsed = segmentsOf(address);
+  if (!parsed) return null;
+  const { host, segments } = parsed;
+
+  if (host === "lccn.loc.gov") return segments[0] ?? null;
 
   const first = segments[0];
   if (first === "item" || first === "resource") {
     const rest = segments.slice(1);
     return rest.length > 0 ? rest.join("/") : null;
   }
-  // A collection is named by its slug alone: the address goes on to a page
-  // about the collection, which is not part of what names it.
-  if (first === "collections") return segments[1] ?? null;
   return null;
+}
+
+/**
+ * The slug a collection is addressed by, which is what names it.
+ *
+ * The address goes on to a page about the collection, and that trailing part is
+ * no part of the name.
+ */
+export function collectionSlugFrom(address: string | null): string | null {
+  const parsed = segmentsOf(address);
+  if (!parsed) return null;
+  return parsed.segments[0] === "collections" ? (parsed.segments[1] ?? null) : null;
 }

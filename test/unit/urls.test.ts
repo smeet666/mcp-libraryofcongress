@@ -134,6 +134,23 @@ describe("addresses", () => {
     expect(itemDocumentUrl("a b/c?d=e")).toBe("https://www.loc.gov/item/a%20b/c%3Fd%3De/?fo=json");
   });
 
+  it("refuses an identifier that climbs out of the item route", () => {
+    expect(() => itemDocumentUrl("../../search")).toThrow(/relative path segment/i);
+  });
+
+  it("refuses an identifier carrying a control character, and names none back", () => {
+    const control = String.fromCharCode(1);
+    let message = "";
+    try {
+      itemDocumentUrl(`2017${control}645459`);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/control character/i);
+    expect(message).not.toContain("2017");
+    expect(message).not.toContain(control);
+  });
+
   it("reads an identifier written with stray separators", () => {
     expect(itemDocumentUrl("/2017645459/")).toBe("https://www.loc.gov/item/2017645459/?fo=json");
   });
@@ -154,10 +171,11 @@ describe("identifiers", () => {
     expect(identifierFrom("//lccn.loc.gov/2003619106")).toBe("2003619106");
   });
 
-  it("names a collection by its slug alone", () => {
+  it("names nothing for a collection address, which the item route cannot read", () => {
     expect(
       identifierFrom("https://www.loc.gov/collections/liturgical-chants/about-this-collection/"),
-    ).toBe("liturgical-chants");
+    ).toBeNull();
+    expect(identifierFrom("https://www.loc.gov/collections/liturgical-chants/")).toBeNull();
   });
 
   it("returns nothing rather than a guess for an address it does not know", () => {

@@ -12,10 +12,12 @@ describe("catalogue rows", () => {
 
     expect(records[0]).toEqual({
       identifier: "glass-orchard-1971",
+      isCollection: false,
       title: "The Glass Orchard",
       creator: "reame, vashti, orchard pictures",
       year: 1971,
       date: "1971-06-04",
+      dateCode: null,
       format: "book",
       location: ["utah", "united states"],
       subjects: ["orchards", "salt flats"],

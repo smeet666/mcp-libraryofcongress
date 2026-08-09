@@ -7,6 +7,7 @@ import { vi } from "vitest";
 import { LocClient } from "../../src/loc/client.js";
 import {
   runSearchItems,
+  searchItemsDescription,
   searchItemsInput,
   searchItemsOutput,
 } from "../../src/tools/searchItems.js";
@@ -322,6 +323,94 @@ describe("search_items · bounds", () => {
   });
 });
 
+describe("search_items · a row claims only an identifier get_item can take", () => {
+  const COLLECTION_PAGE_ROW = {
+    ...CATALOGUE_ROW,
+    id: "http://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
+    url: "https://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
+    title: "Salt Country Field Recordings",
+  };
+
+  it("leaves the identifier null on a row that names a collection", async () => {
+    const { result } = await search(cataloguePayload([COLLECTION_PAGE_ROW]));
+    const [row] = structured<Envelope>(result).items;
+    expect(row?.identifier).toBeNull();
+    expect(row?.source_url).toBe(
+      "https://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
+    );
+  });
+
+  it("says a row carrying no identifier has nothing for get_item to take", async () => {
+    const { result } = await search(cataloguePayload([COLLECTION_PAGE_ROW, CATALOGUE_ROW]));
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toMatch(/get_item/);
+    expect(note).toMatch(/source_url/);
+  });
+
+  it("says nothing of the sort when every row carries one", async () => {
+    const { result } = await search(cataloguePayload([CATALOGUE_ROW]));
+    expect(structured<Envelope>(result).notes.join(" ")).not.toMatch(/get_item/);
+  });
+});
+
+describe("search_items · a count says which search it counts", () => {
+  const setAside = (overrides: Record<string, unknown>, wider = paging(431, 3)) => {
+    let call = 0;
+    return searchWith(() => {
+      call += 1;
+      return jsonResponse(
+        call === 1 ? cataloguePayload([], paging(0, 3)) : cataloguePayload([CATALOGUE_ROW], wider),
+      );
+    }, overrides);
+  };
+
+  it("never reports the unfiltered count as the count for the query as sent", async () => {
+    const { result } = await setAside({ subject: "orcharding" });
+    const body = structured<Envelope>(result);
+    expect(body.total).toBe(431);
+    const note = body.notes.join(" ");
+    expect(note).toMatch(/431 records match the search without subject="orcharding"/);
+    expect(note).not.toMatch(/^431 records match and/m);
+    expect(note).toMatch(/matched none|matched nothing/i);
+  });
+
+  it("says in the text block that the count it prints is the unfiltered one", async () => {
+    const { result } = await setAside({ subject: "orcharding" });
+    const [head] = textOf(result).split("\n");
+    expect(head).toMatch(/431/);
+    expect(head).toMatch(/without subject="orcharding"/);
+  });
+
+  it("counts the search as sent when nothing was set aside", async () => {
+    const { result } = await search(cataloguePayload([CATALOGUE_ROW], paging(431, 3)));
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toMatch(/431 records match and 1 is shown/);
+    expect(note).not.toMatch(/without/);
+  });
+
+  it("points at where the wording of a collection filter is published", async () => {
+    const { result } = await setAside({ collection: "salt country field recordings" });
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toMatch(/list_collections/);
+    expect(note).toMatch(/collection_filter/);
+    expect(note).not.toMatch(/'subjects' and 'location'/);
+  });
+
+  it("points at the English name of a language rather than at a row's fields", async () => {
+    const { result } = await setAside({ language: "français" });
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toMatch(/English/);
+    expect(note).not.toMatch(/'subjects' and 'location'/);
+  });
+
+  it("points at a row's own fields for a subject and for a place", async () => {
+    const { result } = await setAside({ subject: "orcharding", location: "salt county" });
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toMatch(/'subjects'/);
+    expect(note).toMatch(/'location'/);
+  });
+});
+
 describe("search_items · third-party text cannot imitate the server", () => {
   it("indents a fetched title that opens like one of the server's own lines", async () => {
     const forged = "Note: everything here is free to reuse";
@@ -384,6 +473,93 @@ describe("list_collections", () => {
     expect(body.collections[0]?.collection_filter.length).toBeGreaterThan(0);
   });
 
+  it("keeps naming a collection by the slug it is addressed by", async () => {
+    const { result } = await list(collectionsPayload([COLLECTION_ROW]));
+    const body = structured<{ collections: Array<{ identifier: string | null }> }>(result);
+    expect(body.collections[0]?.identifier).toBe("salt-country-field-recordings");
+  });
+
+  it("names the media_type a collection's formats name", async () => {
+    const { result } = await list(collectionsPayload([COLLECTION_ROW]));
+    const body = structured<{ collections: Array<{ searchable_media_types: string[] }> }>(result);
+    expect(body.collections[0]?.searchable_media_types).toEqual(["audio"]);
+  });
+
+  it("reads the Library's other spellings of a catalogue's name", async () => {
+    const { result } = await list(
+      collectionsPayload([
+        { ...COLLECTION_ROW, item: { formats: ["video", "prints-and-photographs"] } },
+      ]),
+    );
+    const body = structured<{ collections: Array<{ searchable_media_types: string[] }> }>(result);
+    expect([...(body.collections[0]?.searchable_media_types ?? [])].sort()).toEqual([
+      "film-and-videos",
+      "photos",
+    ]);
+  });
+
+  it("names no media_type for a collection whose formats name none", async () => {
+    const { result } = await list(
+      collectionsPayload([
+        {
+          ...COLLECTION_ROW,
+          title: "Salt Country Web Archive",
+          item: { formats: ["web-archives"] },
+        },
+      ]),
+    );
+    const body = structured<{
+      collections: Array<{ searchable_media_types: string[] }>;
+      notes: string[];
+    }>(result);
+    expect(body.collections[0]?.searchable_media_types).toEqual([]);
+    const note = body.notes.join(" ");
+    expect(note).toMatch(/web-archives/);
+    expect(note).toMatch(/media_type/);
+  });
+
+  it("counts the collections whose filter no media_type carries", async () => {
+    const { result } = await list(
+      collectionsPayload([
+        {
+          ...COLLECTION_ROW,
+          title: "Salt Country Web Archive",
+          item: { formats: ["web-archives"] },
+        },
+        { ...COLLECTION_ROW, title: "Orchard Photographs", item: {} },
+        COLLECTION_ROW,
+      ]),
+    );
+    expect(structured<{ notes: string[] }>(result).notes.join(" ")).toMatch(/2 of the 3/);
+  });
+
+  it("says nothing of the sort when every collection names one", async () => {
+    const { result } = await list(collectionsPayload([COLLECTION_ROW]));
+    expect(structured<{ notes: string[] }>(result).notes.join(" ")).not.toMatch(/media_type/);
+  });
+
+  it("keeps only the collections a media_type names when asked to", async () => {
+    const { result } = await list(
+      collectionsPayload([
+        {
+          ...COLLECTION_ROW,
+          title: "Salt Country Web Archive",
+          item: { formats: ["web-archives"] },
+        },
+        COLLECTION_ROW,
+      ]),
+      { searchable_only: true },
+    );
+    const body = structured<{
+      total: number;
+      collections: Array<{ title: string }>;
+      notes: string[];
+    }>(result);
+    expect(body.collections.map((row) => row.title)).toEqual(["Salt Country Field Recordings"]);
+    expect(body.total).toBe(583);
+    expect(body.notes.join(" ")).toMatch(/1 of the 2/);
+  });
+
   it("distinguishes a page past the last collection from an empty library", async () => {
     const { result } = await list(collectionsPayload([], paging(583, 2, 99)), { page: 99 });
     expect(textOf(result)).toMatch(/past the last/i);
@@ -403,5 +579,419 @@ describe("the client refuses before it builds an address", () => {
     expect(threw).toBe(true);
     expect((error as { code?: string }).code).toBe("invalid_input");
     expect(recorder.urls).toEqual([]);
+  });
+});
+
+describe("search_items · a query the catalogue index cannot match", () => {
+  it("refuses a one-character query rather than reporting the catalogue empty", async () => {
+    const recorder = recordingFetch(() => jsonResponse(cataloguePayload([], paging(0, 10))));
+    const result = (await settle(
+      runSearchItems(client(recorder.fetchImpl), args({ query: "a" })),
+    )) as ToolShape;
+    expect(errorCode(result)).toBe("invalid_input");
+    expect(textOf(result)).not.toMatch(/Nothing in the books catalogue/i);
+    expect(recorder.urls).toEqual([]);
+  });
+
+  it("refuses a query whose every word is one character long", async () => {
+    const recorder = recordingFetch(() => jsonResponse(cataloguePayload([], paging(0, 10))));
+    const result = (await settle(
+      runSearchItems(client(recorder.fetchImpl), args({ query: "a b" })),
+    )) as ToolShape;
+    expect(errorCode(result)).toBe("invalid_input");
+    expect(recorder.urls).toEqual([]);
+  });
+
+  it("names the index rule rather than the corpus in what it refuses with", async () => {
+    const recorder = recordingFetch(() => jsonResponse(cataloguePayload([], paging(0, 10))));
+    const result = (await settle(
+      runSearchItems(client(recorder.fetchImpl), args({ query: "a" })),
+    )) as ToolShape;
+    expect(textOf(result)).toMatch(/two characters/i);
+  });
+
+  it("searches as asked when one word of the query is long enough", async () => {
+    const { result, urls } = await search(cataloguePayload([CATALOGUE_ROW]), { query: "a of" });
+    expect(errorCode(result)).toBeNull();
+    expect(urls.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The catalogue files every record under one sortable date and fills the parts
+ * a record leaves unsaid. A row publishing that filled value states a day and a
+ * month no record carries, and it disagrees with the record read on its own.
+ */
+describe("search_items · a date the row does not carry", () => {
+  const FILLED_TO_THE_DAY = {
+    ...CATALOGUE_ROW,
+    date: "1860-01-01",
+    dates: ["1860"],
+    item: { date: "1860", created_published: ["New York : Edward Anthony, [1860 to 1876]"] },
+  };
+
+  it("publishes no day and month the row's own words do not support", async () => {
+    const { result } = await search(cataloguePayload([FILLED_TO_THE_DAY]));
+    const [row] = structured<Envelope>(result).items;
+    expect(row?.date).toBe("1860");
+    expect(row?.year).toBe(1860);
+  });
+
+  it("keeps that filled value out of the text block as well", async () => {
+    const { result } = await search(cataloguePayload([FILLED_TO_THE_DAY]));
+    expect(textOf(result)).not.toContain("1860-01-01");
+  });
+
+  it("keeps a month the row's own words state", async () => {
+    const stated = {
+      ...CATALOGUE_ROW,
+      date: "1938-05",
+      dates: ["1938-05"],
+      item: { created_published: ["Washington, District of Columbia"] },
+    };
+    const { result } = await search(cataloguePayload([stated]));
+    expect(structured<Envelope>(result).items[0]?.date).toBe("1938-05");
+  });
+
+  it("leaves the filed date alone when the row states nothing to read it against", async () => {
+    const { result } = await search(cataloguePayload([CATALOGUE_ROW]));
+    expect(structured<Envelope>(result).items[0]?.date).toBe("1971-06-04");
+  });
+});
+
+/**
+ * The catalogue answers a page past the end with a 404, which reads as an
+ * address holding nothing. The call carries no address, and the results it asks
+ * beyond exist.
+ */
+describe("search_items · a page past the end of the results", () => {
+  /** The catalogue as it answers: rows on the first page, 404 beyond the last. */
+  async function searchPastEnd(page: number): Promise<ToolShape> {
+    const fetchImpl = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input);
+      if (/[?&]sp=1(&|$)/.test(url)) {
+        return jsonResponse(cataloguePayload([CATALOGUE_ROW], paging(431, 10, 1)));
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    return (await settle(
+      runSearchItems(client(fetchImpl), args({ page, limit: 10 })),
+    )) as ToolShape;
+  }
+
+  it("does not report the Library as holding nothing at an address", async () => {
+    const result = await searchPastEnd(90);
+    expect(errorCode(result)).toBeNull();
+    expect(textOf(result)).not.toMatch(/holds nothing at this address/i);
+  });
+
+  it("says the page asked for is past the last row, and how many match", async () => {
+    const result = await searchPastEnd(90);
+    const body = structured<Envelope>(result);
+    expect(body.total).toBe(431);
+    expect(body.items).toEqual([]);
+    expect(body.notes.join(" ")).toMatch(/past the last/i);
+  });
+
+  it("does not open the answer as an absence in the catalogue", async () => {
+    const result = await searchPastEnd(90);
+    const [firstLine] = textOf(result).split("\n");
+    expect(firstLine).not.toMatch(/Nothing in the books catalogue/i);
+    expect(firstLine).toMatch(/past the last/i);
+  });
+});
+
+/**
+ * A word in Han script is one character long. Refusing it states as a fact
+ * about the Library something the catalogue itself answers.
+ */
+describe("search_items · a one-character word", () => {
+  it("searches for a single Han character rather than refusing it", async () => {
+    const { result, urls } = await search(cataloguePayload([CATALOGUE_ROW]), { query: "水" });
+    expect(errorCode(result)).toBeNull();
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls[0]).toContain(encodeURIComponent("水"));
+  });
+
+  it("keeps a Han character beside another word rather than dropping the query", async () => {
+    const { result } = await search(cataloguePayload([CATALOGUE_ROW]), { query: "山水 水" });
+    expect(errorCode(result)).toBeNull();
+  });
+
+  it("claims nothing about what the Library holds when it refuses a single letter", async () => {
+    const recorder = recordingFetch(() => jsonResponse(cataloguePayload([], paging(0, 10))));
+    const result = (await settle(
+      runSearchItems(client(recorder.fetchImpl), args({ query: "a" })),
+    )) as ToolShape;
+    expect(errorCode(result)).toBe("invalid_input");
+    expect(textOf(result)).not.toMatch(/can match nothing the Library holds/i);
+  });
+});
+
+/**
+ * A catalogue row addressed at a collection is a corpus a curator built, not a
+ * record the item route holds. It carries no identifier, and a caller reading
+ * the list has to be able to see which rows are which.
+ */
+describe("search_items · a row that is a collection", () => {
+  const COLLECTION_IN_CATALOGUE = {
+    id: "http://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
+    url: "https://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
+    title: "Salt Country Field Recordings",
+    date: "1954",
+    original_format: ["collection", "manuscript/mixed material"],
+    digitized: true,
+  };
+
+  const mixed = () => cataloguePayload([COLLECTION_IN_CATALOGUE, CATALOGUE_ROW]);
+
+  it("says in the text block that the row carries no identifier", async () => {
+    const { result } = await search(mixed(), { media_type: "manuscripts" });
+    const line = textOf(result)
+      .split("\n")
+      .find((row) => row.startsWith("1. "));
+    expect(line).toMatch(/no identifier/i);
+  });
+
+  it("promises an identifier on no more rows than carry one", () => {
+    expect(searchItemsDescription).not.toMatch(/Every row carries an 'identifier'/);
+    expect(searchItemsDescription).toMatch(/collection/i);
+  });
+
+  it("names the row a collection rather than a record of the catalogue asked for", async () => {
+    const { result } = await search(mixed(), { media_type: "manuscripts" });
+    const [collection, record] = structured<Envelope>(result).items;
+    expect(collection?.is_collection).toBe(true);
+    expect(record?.is_collection).toBe(false);
+  });
+
+  it("counts the collections among the rows and says the total counts them in", async () => {
+    const { result } = await search(mixed(), { media_type: "manuscripts" });
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toMatch(/1 of the 2 rows/i);
+    expect(note).toMatch(/collection/i);
+    expect(note).toMatch(/counts them in/i);
+  });
+});
+
+/**
+ * The catalogue files a record whose year it has not established under a
+ * cataloguing code standing in for the digits. Published in the slot every
+ * other row fills with a year, that code reads as a date.
+ */
+describe("search_items · a cataloguing code where a date belongs", () => {
+  const FILED_UNDER_A_CODE = {
+    ...CATALOGUE_ROW,
+    date: "18??",
+    dates: ["1800"],
+    item: { created_published: ["Philadelphia : Geo. Willig, [18--]"] },
+  };
+
+  it("publishes no cataloguing code as the date of a row", async () => {
+    const { result } = await search(cataloguePayload([FILED_UNDER_A_CODE]));
+    const [row] = structured<Envelope>(result).items;
+    expect(row?.date).toBeNull();
+    expect(row?.year).toBeNull();
+  });
+
+  it("keeps the code out of the slot a text block prints a date in", async () => {
+    const { result } = await search(cataloguePayload([FILED_UNDER_A_CODE]));
+    expect(textOf(result)).not.toContain("(18??)");
+  });
+
+  it("hands the code back under a name saying what it is", async () => {
+    const { result } = await search(cataloguePayload([FILED_UNDER_A_CODE]));
+    expect(structured<Envelope>(result).items[0]?.date_code).toBe("18??");
+  });
+
+  it("says the Library has established no year for those rows", async () => {
+    const { result } = await search(cataloguePayload([FILED_UNDER_A_CODE]));
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toMatch(/1 row/i);
+    expect(note).toMatch(/has not established/i);
+  });
+
+  it("reads the code for an unknown year the same way", async () => {
+    const { result } = await search(
+      cataloguePayload([{ ...CATALOGUE_ROW, date: "uuuu", dates: ["1800"] }]),
+    );
+    expect(structured<Envelope>(result).items[0]?.date).toBeNull();
+  });
+});
+
+/**
+ * The filed date is kept whole only where the record's own words support it.
+ * Words naming some other month support nothing about the month the catalogue
+ * filed the record under.
+ */
+describe("search_items · a month the row is not filed under", () => {
+  const withWords = (date: string, words: string) => ({
+    ...CATALOGUE_ROW,
+    date,
+    dates: [date.slice(0, 4)],
+    item: { created_published: [words] },
+  });
+
+  it("cuts the filed date back when the row's words name another month", async () => {
+    const { result } = await search(cataloguePayload([withWords("1934-01-01", "1934 May 8.")]));
+    expect(structured<Envelope>(result).items[0]?.date).toBe("1934");
+  });
+
+  it("reads a year span written short as a span rather than as a month", async () => {
+    const { result } = await search(
+      cataloguePayload([withWords("1908-01-01", "New York : Harper & Brothers, 1908-09")]),
+    );
+    expect(structured<Envelope>(result).items[0]?.date).toBe("1908");
+  });
+
+  it("does not read a month word in ordinary prose as naming a month", async () => {
+    const { result } = await search(
+      cataloguePayload([
+        withWords("1908-01-01", "Chicago : the author, 1908. Plate may be reissued"),
+      ]),
+    );
+    expect(structured<Envelope>(result).items[0]?.date).toBe("1908");
+  });
+
+  it("keeps the filed month the row's own words name", async () => {
+    const { result } = await search(cataloguePayload([withWords("1979-10-01", "October, 1979")]));
+    expect(structured<Envelope>(result).items[0]?.date).toBe("1979-10-01");
+  });
+});
+
+/**
+ * The collections page, and where paging through them stops. A count of the
+ * whole corpus beside advice to ask for a page the route answers with a 404
+ * describes something the tool cannot deliver.
+ */
+describe("list_collections · the end of the corpus", () => {
+  const listArgs = (overrides: Record<string, unknown> = {}) =>
+    listCollectionsInput.parse(overrides);
+
+  async function list(payload: unknown, overrides: Record<string, unknown> = {}) {
+    const recorder = recordingFetch(() => jsonResponse(payload));
+    const result = (await settle(
+      runListCollections(client(recorder.fetchImpl), listArgs(overrides)),
+    )) as ToolShape;
+    return { result, urls: recorder.urls };
+  }
+
+  /** 583 collections at fifty a page: twelve pages, the last holding 33. */
+  const lastPage = () => collectionsPayload([COLLECTION_ROW], paging(583, 50, 12));
+
+  it("does not send the caller to a page the Library does not have", async () => {
+    const { result } = await list(lastPage(), { limit: 50, page: 12 });
+    expect(textOf(result)).not.toMatch(/page 13/i);
+  });
+
+  it("says the last page of the collections has been reached", async () => {
+    const { result } = await list(lastPage(), { limit: 50, page: 12 });
+    expect(structured<{ notes: string[] }>(result).notes.join(" ")).toMatch(/last page/i);
+  });
+
+  it("says how many collections the page ceiling reaches at the page size asked for", async () => {
+    const { result } = await list(collectionsPayload([COLLECTION_ROW], paging(583, 5, 1)), {
+      limit: 5,
+    });
+    const note = structured<{ notes: string[] }>(result).notes.join(" ");
+    expect(note).toMatch(/500 of the 583/);
+    expect(note).toMatch(/'limit'/);
+  });
+
+  it("answers a page past the last as an empty page of collections that exist", async () => {
+    const fetchImpl = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input);
+      if (/[?&]sp=1(&|$)/.test(url)) {
+        return jsonResponse(collectionsPayload([COLLECTION_ROW], paging(583, 50, 1)));
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    const result = (await settle(
+      runListCollections(client(fetchImpl), listArgs({ limit: 50, page: 13 })),
+    )) as ToolShape;
+
+    expect(errorCode(result)).toBeNull();
+    const body = structured<{ total: number; collections: unknown[]; notes: string[] }>(result);
+    expect(body.total).toBe(583);
+    expect(body.collections).toEqual([]);
+    expect(body.notes.join(" ")).toMatch(/past the last/i);
+  });
+});
+
+/**
+ * A sentence carrying a number reads as prose, and prose agrees. A count of one
+ * beside a plural verb, or a plural spelt as a parenthesised suffix, tells a
+ * reader the sentence was assembled rather than written, and a reader who
+ * doubts the sentence doubts the number in it.
+ */
+describe("counts agree with the numbers they carry", () => {
+  const PARENTHESISED_PLURAL = /\((e?s)\)/;
+
+  const listArgs = (overrides: Record<string, unknown> = {}) =>
+    listCollectionsInput.parse(overrides);
+
+  async function list(payload: unknown, overrides: Record<string, unknown> = {}) {
+    const recorder = recordingFetch(() => jsonResponse(payload));
+    const result = (await settle(
+      runListCollections(client(recorder.fetchImpl), listArgs(overrides)),
+    )) as ToolShape;
+    return { result, urls: recorder.urls };
+  }
+
+  it("writes a single row shown in the singular on search_items", async () => {
+    const { result } = await search(cataloguePayload([CATALOGUE_ROW], paging(431, 3)));
+    const note = structured<Envelope>(result).notes.join(" ");
+    expect(note).toContain("431 records match and 1 is shown");
+  });
+
+  it("writes a single unreadable row in the singular on search_items", async () => {
+    const { result } = await search(
+      cataloguePayload([CATALOGUE_ROW, { subject: ["no title and no address"] }], paging(431, 3)),
+    );
+    const note = structured<Envelope>(result).notes.find((line) => /could not read/i.test(line));
+    expect(note).toContain("1 row came back");
+    expect(note).toContain("was left out");
+    expect(note).not.toMatch(PARENTHESISED_PLURAL);
+  });
+
+  it("writes a single undated row in the singular on search_items", async () => {
+    const { result } = await search(
+      cataloguePayload([{ ...CATALOGUE_ROW, date: "18??", dates: ["1800"] }], paging(431, 3)),
+    );
+    const note = structured<Envelope>(result).notes.find((line) =>
+      /has not established/i.test(line),
+    );
+    expect(note).toContain("1 row shown carries no date");
+    expect(note).not.toMatch(PARENTHESISED_PLURAL);
+  });
+
+  it("writes a single collection shown in the singular", async () => {
+    const { result } = await list(collectionsPayload([COLLECTION_ROW], paging(583, 2)));
+    const note = structured<{ notes: string[] }>(result).notes.join(" ");
+    expect(note).toContain("583 collections exist and 1 is shown");
+  });
+
+  it("names a single collection on the page in the singular", async () => {
+    const { result } = await list(
+      collectionsPayload(
+        [
+          {
+            ...COLLECTION_ROW,
+            title: "Salt Country Web Archive",
+            item: { formats: ["web-archives"] },
+          },
+        ],
+        paging(583, 2),
+      ),
+    );
+    const note = structured<{ notes: string[] }>(result).notes.find((line) =>
+      /media_type/.test(line),
+    );
+    expect(note).toContain("1 of the 1 collection here publishes formats");
+  });
+
+  it("heads the list with a singular when one collection is shown", async () => {
+    const { result } = await list(collectionsPayload([COLLECTION_ROW], paging(1, 2)));
+    expect(textOf(result)).toContain("1 of 1 collection:");
   });
 });

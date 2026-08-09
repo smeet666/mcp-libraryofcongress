@@ -154,7 +154,7 @@ describe("search_newspapers · the excerpt is never sold as the matched passage"
       newspapersPayload([newspaperRow({ description: [PAGE_WITHOUT_WORDS] })]),
     );
     const text = textOf(result);
-    expect(text).toMatch(/opening of the page/i);
+    expect(text).toMatch(/opening of its page/i);
     expect(text).toMatch(/further down/i);
   });
 
@@ -257,6 +257,42 @@ describe("search_newspapers · the kind of every excerpt travels with it", () =>
     expect(INSTRUCTIONS).toMatch(/excerpt_kind/);
     expect(INSTRUCTIONS).toMatch(/page_opening/);
   });
+
+  /**
+   * A page whose machine-read text holds the letters of a searched word inside
+   * longer words and nowhere on its own. Calling such a row a passage puts the
+   * warning label on the wrong rows and leaves this one out of the count of
+   * openings, which is the one number that says how much of an answer is the
+   * start of a page rather than the match.
+   */
+  const PAGE_WITH_THE_LETTERS_ONLY =
+    "THE APPEAL PAGE ONE It does so impartially wasting no words and men are just " +
+    "as particular as women about the wrinkles around the mouth, while over at the " +
+    "works they look to their old harness and see whether new parts are needed.";
+
+  it("calls a row an opening when the words appear only inside longer words", async () => {
+    const { result } = await search(
+      newspapersPayload([newspaperRow({ description: [PAGE_WITH_THE_LETTERS_ONLY] })]),
+      { query: "art gallery" },
+    );
+    const [hit] = structured<Envelope>(result).hits;
+    expect(hit?.excerpt_kind).toBe("page_opening");
+    expect(String(hit?.excerpts ?? "")).toContain("THE APPEAL PAGE ONE");
+  });
+
+  it("counts such a row among the openings the note reports", async () => {
+    const { result } = await search(
+      newspapersPayload([
+        newspaperRow({ description: [PAGE_WITH_THE_LETTERS_ONLY] }),
+        newspaperRow({ description: ["The new Person Hall Art Gallery opened on Friday."] }),
+      ]),
+      { query: "art gallery" },
+    );
+    const body = structured<Envelope>(result);
+    const note = body.notes.find((line) => /further down/i.test(line)) ?? "";
+    expect(note).toMatch(/1 of 2/);
+    expect(textOf(result)).toMatch(/\[page opening\]/i);
+  });
 });
 
 describe("search_newspapers · what quoting a phrase does, as the Library does it", () => {
@@ -270,8 +306,8 @@ describe("search_newspapers · what quoting a phrase does, as the Library does i
     expect(INSTRUCTIONS).not.toMatch(PROMISE);
   });
 
-  it("says quoting narrows the search without deciding how the Library matches", () => {
-    expect(searchNewspapersDescription).toMatch(/narrow/i);
+  it("says quoting changes the matching without deciding how the Library matches", () => {
+    expect(searchNewspapersDescription).toMatch(/double quotes/i);
     expect(searchNewspapersDescription).toMatch(/apart|separately|order/i);
   });
 
@@ -292,6 +328,67 @@ describe("search_newspapers · what quoting a phrase does, as the Library does i
   it("keeps that warning off an answer with no rows at all", async () => {
     const { result } = await search(newspapersPayload([], paging(0, 2)));
     expect(structured<Envelope>(result).notes.join(" ")).not.toMatch(/guarantee/i);
+  });
+});
+
+/**
+ * What quotes do to the number of matching pages is the Library's business and
+ * it varies by query: measured against the corpus, a quoted query comes back
+ * with a hundredth of the pages the same words unquoted match, with all but a
+ * few per cent of them, or with more of them than the unquoted search returns.
+ * Any single size put on that is a claim the corpus contradicts.
+ */
+describe("search_newspapers · the size of what quoting does is never claimed", () => {
+  const SIZE = /sharply|far more|far fewer|much (more|fewer|larger|smaller)|greatly|drastically/i;
+
+  it("claims no size in the tool description", () => {
+    expect(searchNewspapersDescription).not.toMatch(SIZE);
+  });
+
+  it("claims no size in the server instructions", () => {
+    expect(INSTRUCTIONS).not.toMatch(SIZE);
+  });
+
+  it("claims no size in the note a quoted query carries, and says the count varies", async () => {
+    const { result } = await search(newspapersPayload([newspaperRow()]));
+    const note =
+      structured<Envelope>(result).notes.find((line) => /double quotes/i.test(line)) ?? "";
+    expect(note).not.toMatch(SIZE);
+    expect(note).toMatch(/varies|from one query to the next/i);
+  });
+});
+
+describe("search_newspapers · a count agrees with the number it carries", () => {
+  const NO_PARENTHESISED_PLURAL = /\((e?s)\)/;
+
+  it("writes one opening out of two matches without a parenthesised plural", async () => {
+    const { result } = await search(
+      newspapersPayload([
+        newspaperRow({ description: [PAGE_WITHOUT_WORDS] }),
+        newspaperRow({ description: [PAGE_WITH_WORDS] }),
+      ]),
+    );
+    const note =
+      structured<Envelope>(result).notes.find((line) => /further down/i.test(line)) ?? "";
+    expect(note).toContain("On 1 of 2 matches");
+    expect(note).not.toMatch(NO_PARENTHESISED_PLURAL);
+  });
+
+  it("writes a single unreadable row in the singular", async () => {
+    const { result } = await search(
+      newspapersPayload([newspaperRow(), { title: "no address at all" }], paging(9, 2)),
+    );
+    const note =
+      structured<Envelope>(result).notes.find((line) => /could not read/i.test(line)) ?? "";
+    expect(note).toContain("1 match came back");
+    expect(note).toContain("was left out");
+    expect(note).not.toMatch(NO_PARENTHESISED_PLURAL);
+  });
+
+  it("writes a single match shown in the singular", async () => {
+    const { result } = await search(newspapersPayload([newspaperRow()], paging(4177, 1)));
+    const note = structured<Envelope>(result).notes.find((line) => /are shown|is shown/.test(line));
+    expect(note).toContain("4177 pages match and 1 is shown");
   });
 });
 
@@ -323,8 +420,8 @@ describe("search_newspapers · an absence is not a failure and a failure is not 
     expect(recorder.urls).toEqual([]);
   });
 
-  it("refuses a one-character query at the schema", () => {
-    expect(searchNewspapersInput.safeParse({ query: "a" }).success).toBe(false);
+  it("refuses a query of no characters at the schema", () => {
+    expect(searchNewspapersInput.safeParse({ query: "" }).success).toBe(false);
   });
 
   it("calls an unreadable answer a parse failure, not an empty result", async () => {
@@ -539,5 +636,58 @@ describe("search_newspapers · the cache answers the question that was asked", (
     const longest = (structured<Envelope>(second).hits[0]?.excerpts as string[])[0] ?? "";
     expect(shortest.length).toBeLessThanOrEqual(100);
     expect(longest.length).toBeGreaterThan(shortest.length);
+  });
+});
+
+describe("search_newspapers · where the excerpt label is written", () => {
+  const openings = newspapersPayload([
+    newspaperRow({ description: [PAGE_WITHOUT_WORDS] }),
+    newspaperRow({
+      id: "http://www.loc.gov/resource/sn00000002/1894-01-02/ed-1/?sp=1",
+      url: "https://www.loc.gov/resource/sn00000002/1894-01-02/ed-1/?sp=1",
+      description: [PAGE_WITHOUT_WORDS],
+    }),
+  ]);
+
+  it("writes the label on every excerpt of the text block", async () => {
+    const { result } = await search(openings);
+    const labelled = textOf(result).match(/\[page opening]/g) ?? [];
+    expect(labelled.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps the payload excerpts as the machine read them, with no label added", async () => {
+    const { result } = await search(openings);
+    for (const hit of structured<Envelope>(result).hits) {
+      for (const excerpt of hit.excerpts as string[]) {
+        expect(excerpt).not.toContain("[page opening]");
+        expect(excerpt).not.toContain("[passage]");
+      }
+    }
+  });
+
+  it("tells the caller which rendering carries the label and which carries the field", async () => {
+    const { result } = await search(openings);
+    const note = structured<Envelope>(result).notes.find((line) => line.includes("[page opening]"));
+    expect(note, "no note names the label").toBeDefined();
+    expect(note).toMatch(/text block/i);
+    expect(note).toContain("excerpt_kind");
+  });
+});
+
+/**
+ * The full-text index of the newspaper corpus holds single characters, and
+ * asking it for one returns a different set of pages from asking it for
+ * another. A refusal in the words of the validation framework states as a limit
+ * of the corpus what is a limit of the declaration.
+ */
+describe("search_newspapers · a query of one character", () => {
+  it("accepts a one-character query rather than refusing it in the framework's words", () => {
+    expect(searchNewspapersInput.safeParse({ query: "a" }).success).toBe(true);
+  });
+
+  it("asks the corpus for the character it was given", async () => {
+    const { result, urls } = await search(newspapersPayload([newspaperRow()]), { query: "a" });
+    expect(errorCode(result)).toBeNull();
+    expect(urls[0]).toMatch(/[?&]q=a(&|$)/);
   });
 });

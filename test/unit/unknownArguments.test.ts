@@ -143,7 +143,9 @@ describe("an argument no tool declares", () => {
   it("lists the names the tool does take", async () => {
     const client = await connect();
     const result = await call(client, "list_collections", { rows: 3 });
-    expect(result.text).toContain("This tool takes: limit, page, max_description_chars.");
+    expect(result.text).toContain(
+      "This tool takes: limit, page, searchable_only, max_description_chars.",
+    );
   });
 
   it("leaves the arguments a tool does declare working", async () => {

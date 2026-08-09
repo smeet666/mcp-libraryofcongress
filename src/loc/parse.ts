@@ -21,7 +21,7 @@ import type {
   SearchResults,
 } from "../types.js";
 import { ITEM_FIELD, MOST_SUBJECTS, ROW_FIELD, itemUrl } from "./paths.js";
-import { identifierFrom } from "./urls.js";
+import { collectionSlugFrom, identifierFrom } from "./urls.js";
 
 type Json = Record<string, unknown>;
 
@@ -120,6 +120,161 @@ export function asYear(value: unknown): number | null {
   return direct === null ? null : plausible(direct);
 }
 
+/**
+ * Reading a record's date against the words the record itself uses.
+ *
+ * The catalogue files every record under one sortable date and fills the parts
+ * the record leaves unsaid: a record whose words say "1925" is filed at
+ * 1925-01-01, and a piece of a series is filed at the opening of the span the
+ * series covers. Published as it stands, that filled value states a month and a
+ * day no record carries. So the filed value is kept whole only where the
+ * record's own words name the month it is filed under, and is cut back to the
+ * year otherwise: words naming some other month, as a photograph dated "1934
+ * May 8." and filed at 1934-01-01 does, support nothing about January. A record
+ * that says nothing about its date offers nothing to read the filed value
+ * against, and it is published as filed.
+ */
+const FILED_TO_THE_DAY = /^(\d{4})-(\d{2})-\d{2}$/;
+const FILED_TO_THE_MONTH = /^(\d{4})-(\d{2})$/;
+
+/**
+ * A filed value standing in for a date the Library has not established.
+ *
+ * Cataloguing writes an unknown digit as `u` or `?`, so a record whose year is
+ * unknown is filed under `uuuu` and one known only to its century under `18??`.
+ * Such a value occupies the place every other record fills with a year, and
+ * read as a date it is neither a year nor a range.
+ */
+const CATALOGUING_CODE = /^(?=[0-9u?]*[u?])[0-9u?]{4}$/i;
+
+export const isCataloguingCode = (filed: string): boolean => CATALOGUING_CODE.test(filed.trim());
+
+/** Month numbers, under every name and abbreviation records write them with. */
+const MONTH_NUMBER: Record<string, number> = {
+  january: 1,
+  jan: 1,
+  february: 2,
+  feb: 2,
+  march: 3,
+  mar: 3,
+  april: 4,
+  apr: 4,
+  may: 5,
+  june: 6,
+  jun: 6,
+  july: 7,
+  jul: 7,
+  august: 8,
+  aug: 8,
+  september: 9,
+  sept: 9,
+  sep: 9,
+  october: 10,
+  oct: 10,
+  november: 11,
+  nov: 11,
+  december: 12,
+  dec: 12,
+};
+
+const MONTH_WORDS = Object.keys(MONTH_NUMBER).join("|");
+
+/**
+ * A month word with a day or a year standing beside it, written either way
+ * round: "May 8", "1934 May", "24 Sept. 1998", "October, 1979".
+ */
+const MONTH_BESIDE_A_NUMBER = new RegExp(
+  `\\b(?:(\\d{1,4})\\s*\\.?\\s*(${MONTH_WORDS})\\b|(${MONTH_WORDS})\\b\\.?\\s*,?\\s*(\\d{1,4})\\b)`,
+  "gi",
+);
+
+/** A year and two digits joined by a hyphen: either a month or a short span. */
+const YEAR_AND_TWO_DIGITS = /\b(\d{4})-(\d{2})\b/g;
+
+/** A date written as month, day and year separated by slashes. */
+const SLASHED_DATE = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g;
+
+/**
+ * The months a record's own words name, read against the year it is filed
+ * under.
+ *
+ * A month word is also an ordinary word: a sentence opens with "may", a piece
+ * of music is a "march" and an office has a "sept." of schools, so a month is
+ * read only where a day or a year stands with it. A year and two digits joined
+ * by a hyphen name a month of that year only when the year is the one the
+ * record is filed under; written of any other year the pair closes a span, as
+ * `1908-09` writes 1908 to 1909.
+ */
+export function monthsNamed(text: string, filedYear: string): Set<number> {
+  const months = new Set<number>();
+
+  for (const match of text.matchAll(MONTH_BESIDE_A_NUMBER)) {
+    const word = (match[2] ?? match[3] ?? "").toLowerCase();
+    const month = MONTH_NUMBER[word];
+    if (month !== undefined) months.add(month);
+  }
+  for (const match of text.matchAll(YEAR_AND_TWO_DIGITS)) {
+    if (match[1] === filedYear) months.add(Number(match[2]));
+  }
+  for (const match of text.matchAll(SLASHED_DATE)) {
+    months.add(Number(match[1]));
+  }
+
+  return months;
+}
+
+/**
+ * Ranges of years as a record writes them, each read for the year it opens on.
+ *
+ * A record can name a date of its own alongside a range covering something
+ * else: "photographed 1864, [printed between 1880 and 1889]" states 1864
+ * outright and gives 1880 to 1889 for the printing. Taking the earliest year a
+ * record mentions as the opening of a range denies the date it states.
+ */
+const DASH_RANGE = /\b(\d{4})\s*(?:[-–—/]|to|through)\s*\d{4}\b/gi;
+const BETWEEN_RANGE = /\bbetween\s+(\d{4})\s+and\s+\d{4}\b/gi;
+
+export function rangeOpenings(text: string): number[] {
+  const openings: number[] = [];
+  for (const pattern of [DASH_RANGE, BETWEEN_RANGE]) {
+    pattern.lastIndex = 0;
+    let match = pattern.exec(text);
+    while (match !== null) {
+      openings.push(Number(match[1]));
+      match = pattern.exec(text);
+    }
+  }
+  return [...new Set(openings)];
+}
+
+export function statedDate(item: Json): string | null {
+  const words = asStrings(item[ITEM_FIELD.createdPublished])
+    .map(plainText)
+    .filter((line) => line !== "");
+  if (words.length > 0) return words.join("; ");
+  const spans = asLabels(item[ITEM_FIELD.dateSpans]);
+  return spans.length > 0 ? spans.join("; ") : null;
+}
+
+export function datePublished(filed: string | null, stated: string | null): string | null {
+  if (filed === null) return null;
+  const trimmed = filed.trim();
+  if (trimmed === "" || isCataloguingCode(trimmed)) return null;
+  const filled = FILED_TO_THE_DAY.exec(trimmed) ?? FILED_TO_THE_MONTH.exec(trimmed);
+  if (filled === null || stated === null) return trimmed;
+
+  const year = filled[1] as string;
+  const month = Number(filled[2]);
+  return monthsNamed(stated, year).has(month) ? trimmed : year;
+}
+
+/** The code the Library files a record under in place of a date, or null. */
+export function dateCode(filed: string | null): string | null {
+  if (filed === null) return null;
+  const trimmed = filed.trim();
+  return isCataloguingCode(trimmed) ? trimmed : null;
+}
+
 /** Titles and captions come through carrying markup and escaped entities. */
 export function plainText(value: string): string {
   return value
@@ -190,6 +345,26 @@ function sourceUrlOf(row: Json, identifier: string | null): string {
   return identifier === null ? "" : itemUrl(identifier);
 }
 
+/**
+ * A search row's own words about its date, which the route spreads over two
+ * places: the record block nested in the row writes them out, and the row
+ * itself lists the years the index files it under. Both are read, because a
+ * record block filled with a place of publication says nothing about a date
+ * while the listed years still name the month a record carries.
+ */
+function statedDateOfRow(row: Json): string | null {
+  const inner = asObject(row[ROW_FIELD.item]);
+  const words =
+    inner === null
+      ? []
+      : asStrings(inner[ITEM_FIELD.createdPublished])
+          .map(plainText)
+          .filter((line) => line !== "");
+  const spans = asLabels(row[ROW_FIELD.dateSpans]);
+  const both = [...words, ...spans];
+  return both.length > 0 ? both.join("; ") : null;
+}
+
 export function toSearchResults(
   payload: unknown,
   url: string,
@@ -208,12 +383,22 @@ export function toSearchResults(
       skipped += 1;
       continue;
     }
+    // The catalogue files every row under one sortable date and fills the parts
+    // the record leaves unsaid, so the filed value is cut back to the precision
+    // the row's own words support.
+    const filed = asString(row[ROW_FIELD.date]);
+    const date = datePublished(filed, statedDateOfRow(row));
     records.push({
       identifier,
+      // A row addressed under the collections route is a corpus a curator built
+      // and named, which the item route holds nothing for.
+      isCollection:
+        collectionSlugFrom(asString(row[ROW_FIELD.url]) ?? asString(row[ROW_FIELD.id])) !== null,
       title: title === null ? null : plainText(title),
       creator: creatorOf(row),
-      year: asYear(row[ROW_FIELD.date]),
-      date: asString(row[ROW_FIELD.date]),
+      year: asYear(date),
+      date,
+      dateCode: dateCode(filed),
       format: asString(row[ROW_FIELD.originalFormat]),
       location: asStrings(row[ROW_FIELD.location]),
       subjects: asStrings(row[ROW_FIELD.subject]).slice(0, MOST_SUBJECTS),
@@ -294,6 +479,25 @@ export interface Excerpts {
   located: boolean;
 }
 
+const REGEX_SPECIALS = /[.*+?^${}()|[\]\\]/g;
+
+/**
+ * A term as machine-read text has to carry it: a whole word, in any case, with
+ * punctuation allowed to sit against either end.
+ *
+ * A run of letters found anywhere inside a longer word is a different word.
+ * `art` sits inside "particular", "impartially" and "parts", and `cat` sits
+ * inside "Cattle"; a page matched on one of those carries none of the words a
+ * caller searched for, and an excerpt built around it reads as the sentence
+ * they asked to see. Optical recognition also glues punctuation to words and
+ * varies the case at will, so the boundary is drawn at letters and digits
+ * rather than at spaces.
+ */
+function wholeWord(term: string): RegExp {
+  const escaped = term.replace(REGEX_SPECIALS, "\\$&");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "giu");
+}
+
 /** Widen a cut to the nearest space, so a passage opens and closes on a word. */
 function toWordBoundary(text: string, index: number, direction: -1 | 1): number {
   const limit = direction === -1 ? 0 : text.length;
@@ -318,15 +522,15 @@ export function excerptsFor(text: string, terms: string[], budget: ExcerptBudget
   const clean = text.replace(/\s+/g, " ").trim();
   if (clean === "") return { passages: [], located: false };
 
-  const haystack = clean.toLowerCase();
   const found: Array<{ at: number; length: number }> = [];
   for (const term of terms) {
-    let from = 0;
-    while (from <= haystack.length - term.length) {
-      const at = haystack.indexOf(term, from);
-      if (at === -1) break;
-      found.push({ at, length: term.length });
-      from = at + term.length;
+    const pattern = wholeWord(term);
+    let match = pattern.exec(clean);
+    while (match !== null) {
+      found.push({ at: match.index, length: match[0].length });
+      // A term that can match nothing would otherwise hold the cursor still.
+      if (match[0].length === 0) pattern.lastIndex += 1;
+      match = pattern.exec(clean);
     }
   }
 
@@ -472,12 +676,26 @@ export function toItemDetail(payload: unknown, identifier: string, url: string):
   const title = asString(item[ITEM_FIELD.title]);
   const source = asString(item[ITEM_FIELD.url]) ?? itemUrl(identifier);
 
+  const stated = statedDate(item);
+  const filed = asString(item[ITEM_FIELD.date]);
+  const date = datePublished(filed, stated);
+  // A record is filed at the start of the period it covers, so the filed year
+  // is the opening of a span only when the record's own words write that span
+  // out and open it on that year. A year they state on its own is a date of the
+  // record, whatever ranges they give beside it.
+  const filedYear = asYear(date);
+  const filedAtSpanOpening =
+    filedYear !== null && stated !== null && rangeOpenings(stated).includes(filedYear);
+
   return {
     identifier,
     title: title === null ? null : plainText(title),
     creator: asStrings(item[ITEM_FIELD.contributorNames]).map(plainText).join(", ") || null,
-    year: asYear(item[ITEM_FIELD.date]),
-    date: asString(item[ITEM_FIELD.date]),
+    year: asYear(date),
+    date,
+    dateCode: dateCode(filed),
+    dateStated: stated,
+    dateIsSpanOpening: filedAtSpanOpening,
     format: asString(item[ITEM_FIELD.originalFormat]),
     description: description === "" ? null : description,
     notes: asStrings(item[ITEM_FIELD.notes]).map(plainText),
@@ -514,7 +732,7 @@ export function toCollections(
     const inner = asObject(row.item);
     const description = asStrings(row[ROW_FIELD.description]).map(plainText).join("\n\n");
     collections.push({
-      identifier: identifierFrom(address),
+      identifier: collectionSlugFrom(address),
       title: plainText(title),
       description: description === "" ? null : description,
       itemCount: asNumber(row[ROW_FIELD.count]),

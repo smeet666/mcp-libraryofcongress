@@ -28,10 +28,21 @@ export const recordSchema = z.object({
     .describe(
       "Pass this to get_item to read the full record. Null when the row names no address a record can be read at.",
     ),
+  is_collection: z
+    .boolean()
+    .describe(
+      "True when the row is a collection a curator gathered and named rather than a record of the catalogue searched. The item route holds nothing at a collection's address, so 'identifier' is null and 'source_url' is where it opens.",
+    ),
   title: z.string().nullable(),
   creator: z.string().nullable().describe("Whoever the Library credits for the work."),
   year: z.number().int().nullable().describe("Read off 'date' when that date names a year."),
   date: z.string().nullable().describe("The date as published, which is often a range."),
+  date_code: z
+    .string()
+    .nullable()
+    .describe(
+      "The cataloguing code the Library files the row under in place of a date, such as 'uuuu' or '18??'. It stands for digits the Library has not established, so 'date' and 'year' are null beside it. Null wherever the filed value is a date.",
+    ),
   format: z.string().nullable().describe("What the thing is: book, photo, map, newspaper."),
   location: z.array(z.string()).describe("Places the record is catalogued under."),
   subjects: z.array(z.string()),
@@ -102,6 +113,22 @@ export function toToolError(error: unknown): ToolResult {
   return { content: [{ type: "text", text: lines.join("\n") }], isError: true };
 }
 
+/**
+ * The form a word takes beside `n`.
+ *
+ * A sentence carrying a number is read as prose, and prose that does not agree
+ * reads as a template rather than as a statement. A reader who takes the
+ * sentence for machinery has no reason to trust the number inside it.
+ */
+export function agrees(n: number, singular: string, plural: string): string {
+  return n === 1 ? singular : plural;
+}
+
+/** A number with the noun it counts, in the form that number takes. */
+export function counted(n: number, singular: string, plural = `${singular}s`): string {
+  return `${n} ${agrees(n, singular, plural)}`;
+}
+
 export function truncate(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
   return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
@@ -141,7 +168,14 @@ export function renderRecords(records: Array<z.infer<typeof recordSchema>>): str
         record.date ? `(${record.date})` : "",
         record.creator ? `· ${record.creator}` : "",
         record.format ? `· ${record.format}` : "",
-        record.identifier ? `· id: ${record.identifier}` : "",
+        // An identifier a row does not carry is stated rather than left out: a
+        // line with nothing where the others carry an id reads as a line whose
+        // id went unprinted.
+        record.identifier
+          ? `· id: ${record.identifier}`
+          : record.is_collection
+            ? "· a collection, no identifier"
+            : "· no identifier",
       ];
       // The address goes on its own line: a client that renders only text has
       // nothing else to cite from, and a model with an identifier and no link

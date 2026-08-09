@@ -10,8 +10,8 @@
  * words are often below where it stops and the excerpt is then the start of the
  * page: `excerpt_kind` names which of the two a caller is holding, and the
  * label rides on the excerpt in the text block so the two cannot be read alike.
- * And the Library decides what double quotes mean, so a quoted query is
- * narrowed rather than held to the phrase, and the answer says so.
+ * And the Library decides what double quotes mean, so a quoted query is matched
+ * by its own rule rather than held to the phrase, and the answer says so.
  *
  * The weight of an answer is the reason for the two budget arguments. A page
  * carries a block of machine-read text, and a page of results returns one such
@@ -30,14 +30,14 @@ import type { LocClient } from "../loc/client.js";
 import type { FacetField } from "../loc/paths.js";
 import type { Facets } from "../loc/urls.js";
 import { strictInput } from "./arguments.js";
-import { OCR_CAVEAT, ok, toToolError, truncate } from "./shared.js";
+import { OCR_CAVEAT, agrees, counted, ok, toToolError, truncate } from "./shared.js";
 import type { ToolResult } from "./shared.js";
 import { invalidInput } from "../errors.js";
 
 export const searchNewspapersDescription = [
   "Search the text inside digitised American newspaper pages held by the Library of Congress.",
   "This reads what optical recognition took off the scanned pages, so it finds a phrase that appears nowhere in a title or a catalogue record.",
-  "Double quotes narrow the search sharply, and the Library decides how it matches what is inside them: a page can come back carrying the words apart or in another order rather than the phrase as written. Without quotes the words are matched separately, which finds far more again.",
+  "Double quotes change how the Library matches the words, and it decides what they mean: a page can come back carrying the words apart or in another order rather than the phrase as written. What the quotes do to the number of matching pages varies from one query to the next, so run the search both ways rather than expecting either form to return more.",
   "'total' counts the pages that match, and they page: ask for page 2, 3 and so on to see beyond the first answer. It is not a count of how many times the words occur.",
   "Each match names the newspaper, the date, the leaf of the issue and the state it was published in, and 'source_url' opens that leaf with the query applied.",
   "'location' keeps to papers published in one state, 'publication' to a single paper, and 'year_from' with 'year_to' to a span of years. A filter matching nothing is dropped and the answer says so.",
@@ -48,9 +48,11 @@ export const searchNewspapersDescription = [
 export const searchNewspapersInput = strictInput({
   query: z
     .string()
-    .min(2)
+    .min(1)
     .max(300)
-    .describe("Words or a quoted phrase, such as '\"cure for influenza\"'."),
+    .describe(
+      "Words or a quoted phrase, such as '\"cure for influenza\"'. The index reads the text off the pages themselves and holds single characters, so a query of one character is a query it answers.",
+    ),
   location: z
     .string()
     .max(120)
@@ -133,9 +135,12 @@ export type SearchNewspapersArgs = z.infer<typeof searchNewspapersInput>;
 /**
  * A query holding at least one quoted run of words.
  *
- * The Library narrows a quoted search, and what it does inside the quotes is
- * its own: pages come back carrying the words apart, so an answer to a quoted
- * query is qualified rather than presented as pages that printed the phrase.
+ * What the Library does inside the quotes is its own: pages come back carrying
+ * the words apart, so an answer to a quoted query is qualified rather than
+ * presented as pages that printed the phrase. The count it comes back with is
+ * qualified with it, because quoting moves that count by an amount no rule
+ * predicts: it can divide it by a hundred, leave it where it stood, or raise it
+ * above the count the same words unquoted return.
  */
 const QUOTED_PHRASE = /"[^"]+"/;
 
@@ -204,7 +209,7 @@ export async function runSearchNewspapers(
     if (cached) notes.push("Served from this server's short-lived in-memory cache.");
     if (skipped) {
       notes.push(
-        `${skipped} match(es) came back in a shape this server could not read and were left out. The count above is what the Library reported.`,
+        `${counted(skipped, "match", "matches")} came back in a shape this server could not read and ${agrees(skipped, "was", "were")} left out. The count above is what the Library reported.`,
       );
     }
 
@@ -230,38 +235,38 @@ export async function runSearchNewspapers(
     ).length;
     if (openings > 0) {
       notes.push(
-        `On ${openings} of ${hits.length} match(es) the searched words sit further down the page than the text returned with the row, so those excerpts are the opening of the page rather than the passage that matched, and each is labelled [page opening]. Quoting one of them quotes something else: follow source_url, which opens the leaf with the query applied.`,
+        `On ${openings} of ${counted(hits.length, "match", "matches")} the searched words sit further down the page than the text returned with the row, so ${agrees(openings, "that excerpt is the opening of its page", "those excerpts are the opening of their page")} rather than the passage that matched. ${agrees(openings, "It carries", "Each carries")} excerpt_kind "page_opening", and in the text block ${agrees(openings, "it is", "each one is")} prefixed [page opening]; the excerpts in the structured answer are the machine-read text as it stands, with nothing added to them. Quoting ${agrees(openings, "it", "one of them")} quotes something else: follow source_url, which opens the leaf with the query applied.`,
       );
     }
 
     if (hits.length > 0 && QUOTED_PHRASE.test(args.query)) {
       notes.push(
-        "The query carries double quotes. That narrows the search sharply, and the Library decides what the quotes mean: it does not guarantee that a matched page carries the words together in that order, so a match can be a page where they sit apart. Read the page behind source_url before repeating the query as the phrase it printed.",
+        "The query carries double quotes. The Library decides what they mean, and it does not guarantee that a matched page carries the words together in that order, so a match can be a page where they sit apart. Read the page behind source_url before repeating the query as the phrase it printed. The count says nothing about the phrase either: what quoting does to it varies from one query to the next, and the same words unquoted can match fewer pages than the quoted form.",
       );
     }
 
     if (total > hits.length) {
       notes.push(
-        `${total} pages match and ${hits.length} are shown. Ask for page ${args.page + 1} to continue: these results page, so the answer in hand is not the whole of it.`,
+        `${counted(total, "page")} match and ${hits.length} ${agrees(hits.length, "is", "are")} shown. Ask for page ${args.page + 1} to continue: these results page, so the answer in hand is not the whole of it.`,
       );
     }
     if (total === 0) {
       notes.push(
-        "The Library matched no digitised newspaper page for these words. An unquoted query matches the words separately, which usually finds more.",
+        "The Library matched no digitised newspaper page for these words. An unquoted query matches the words separately, which is a different search and worth asking.",
       );
     }
     if (hits.length === 0 && total > 0) {
       notes.push(
-        `Page ${args.page} is past the last match. ${total} pages match, so ask for a lower page.`,
+        `Page ${args.page} is past the last match. ${counted(total, "page")} match, so ask for a lower page.`,
       );
     }
 
     const body =
       hits.length === 0
         ? total > 0
-          ? `Page ${args.page} is past the last of ${total} newspaper pages the Library matched for ${args.query}.`
+          ? `Page ${args.page} is past the last of ${counted(total, "newspaper page")} the Library matched for ${args.query}.`
           : `Nothing found in the scanned newspapers for ${args.query}.`
-        : `${hits.length} of ${total} newspaper pages the Library matched for ${args.query}:\n` +
+        : `${hits.length} of ${counted(total, "newspaper page")} the Library matched for ${args.query}:\n` +
           hits
             .map((hit, index) => {
               const where = [

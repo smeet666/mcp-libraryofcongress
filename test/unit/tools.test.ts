@@ -81,14 +81,14 @@ describe("search_newspapers", () => {
     const { client } = clientFor([() => jsonResponse(fixture("newspapers"))]);
     const result = await settle(runSearchNewspapers(client, newspaperArgs), AMPLE_MS);
 
-    expect(notesOf(result).join(" ")).toContain("1 of 2 match(es)");
+    expect(notesOf(result).join(" ")).toContain("1 of 2 matches");
   });
 
   it("reports rows it could not read", async () => {
     const { client } = clientFor([() => jsonResponse(fixture("newspapers"))]);
     const result = await settle(runSearchNewspapers(client, newspaperArgs), AMPLE_MS);
 
-    expect(notesOf(result).join(" ")).toContain("1 match(es) came back in a shape");
+    expect(notesOf(result).join(" ")).toContain("1 match came back in a shape");
   });
 
   it("says nothing was found rather than failing", async () => {
@@ -388,7 +388,12 @@ describe("list_collections", () => {
   it("counts collections rather than the rows it shows", async () => {
     const { client } = clientFor([() => jsonResponse(fixture("collections"))]);
     const result = await settle(
-      runListCollections(client, { limit: 2, page: 1, max_description_chars: 300 }),
+      runListCollections(client, {
+        limit: 2,
+        page: 1,
+        searchable_only: false,
+        max_description_chars: 300,
+      }),
       AMPLE_MS,
     );
 
@@ -399,7 +404,12 @@ describe("list_collections", () => {
   it("carries the wording the catalogue filter takes", async () => {
     const { client } = clientFor([() => jsonResponse(fixture("collections"))]);
     const result = await settle(
-      runListCollections(client, { limit: 2, page: 1, max_description_chars: 300 }),
+      runListCollections(client, {
+        limit: 2,
+        page: 1,
+        searchable_only: false,
+        max_description_chars: 300,
+      }),
       AMPLE_MS,
     );
     const rows = structured(result).collections as Array<{ collection_filter: string }>;
@@ -410,7 +420,12 @@ describe("list_collections", () => {
   it("reports an uncounted collection as uncounted rather than as empty", async () => {
     const { client } = clientFor([() => jsonResponse(fixture("collections"))]);
     const result = await settle(
-      runListCollections(client, { limit: 2, page: 1, max_description_chars: 300 }),
+      runListCollections(client, {
+        limit: 2,
+        page: 1,
+        searchable_only: false,
+        max_description_chars: 300,
+      }),
       AMPLE_MS,
     );
     const rows = structured(result).collections as Array<{ item_count: number | null }>;

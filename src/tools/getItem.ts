@@ -19,6 +19,7 @@ export const getItemDescription = [
   "Read one Library of Congress record by its identifier, as returned by search_items or search_newspapers.",
   "An identifier can carry slashes: a single newspaper issue is named by its paper, its date and its edition together.",
   "Sections are opt-in: 'basic' is the default and covers what a description needs.",
+  "'date' carries only the precision the record's own words support, and 'date_stated' repeats those words, which can be a span of years the record was filed at the opening of. Where the Library has established no date it files the record under a cataloguing code, which 'date_code' carries while 'date' and 'year' stay null.",
   "'citations' returns the ready-made citations the Library publishes for the record.",
   "'resources' lists the served copies, such as page images and downloadable files.",
   "'full_metadata' returns every field the Library publishes for the record, which is large and rarely needed.",
@@ -50,8 +51,29 @@ export const getItemOutput = z.object({
     identifier: z.string(),
     title: z.string().nullable(),
     creator: z.string().nullable(),
-    year: z.number().int().nullable(),
-    date: z.string().nullable(),
+    year: z
+      .number()
+      .int()
+      .nullable()
+      .describe("The year of 'date', which a span of years makes the first of the span."),
+    date: z
+      .string()
+      .nullable()
+      .describe(
+        "The date the Library files the record under, carrying only the precision the record's own words support.",
+      ),
+    date_code: z
+      .string()
+      .nullable()
+      .describe(
+        "The cataloguing code the Library files the record under in place of a date, such as 'uuuu' or '18??'. It stands for digits the Library has not established, so 'date' and 'year' are null beside it. Null wherever the filed value is a date.",
+      ),
+    date_stated: z
+      .string()
+      .nullable()
+      .describe(
+        "When the record was made or issued, in the record's own words, which can be a span of years or a phrase. Null when the record says nothing about it.",
+      ),
     format: z.string().nullable(),
     source_url: z.string().describe("Public page. Show this when citing the record."),
   }),
@@ -64,7 +86,9 @@ export const getItemOutput = z.object({
     .describe("Pass as 'offset' to read the rest of the description. Null when it ends here."),
   notes_on_record: z
     .array(z.string())
-    .describe("Notes the Library published about the record itself."),
+    .describe(
+      "Notes the Library published about the record itself, less any whose words the description already carries. The Library assembles the description of some records out of these notes, and those records would otherwise return one text under two names.",
+    ),
   subjects: z.array(z.string()),
   location: z.array(z.string()),
   language: z.array(z.string()),
@@ -102,6 +126,12 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
     if (cached) notes.push("Served from this server's short-lived in-memory cache.");
 
     const full = data.description ?? "";
+
+    // The Library assembles the description of some records by running their
+    // notes together, so a note whose words the description already carries is
+    // the same text under a second name. It is left to the description, where
+    // it is published whole and paginates.
+    const notesOnRecord = data.notes.filter((note) => !full.includes(note));
     const { slice, nextOffset } = sliceAtLineBoundary(
       full,
       args.offset,
@@ -126,13 +156,15 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
         creator: data.creator,
         year: data.year,
         date: data.date,
+        date_code: data.dateCode,
+        date_stated: data.dateStated,
         format: data.format,
         source_url: data.sourceUrl,
       },
       description: slice === "" ? null : slice,
       offset: args.offset,
       next_offset: nextOffset,
-      notes_on_record: data.notes,
+      notes_on_record: notesOnRecord,
       subjects: data.subjects,
       location: data.location,
       language: data.language,
@@ -161,6 +193,21 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
       }
     }
     if (wanted.has("full_metadata")) structured.full_metadata = data.raw ?? {};
+
+    // A record covering a span is filed under the first year of that span, so
+    // the date beside it is where the catalogue sorts the record rather than
+    // when the thing itself was made.
+    if (data.dateIsSpanOpening) {
+      notes.push(
+        `The record states its date as "${data.dateStated}". ${data.date} is the opening of that span and where the Library files the record, and 'year' reads the same value, so neither is a date the record carries.`,
+      );
+    }
+
+    if (data.dateCode !== null) {
+      notes.push(
+        `The Library files this record under "${data.dateCode}", a cataloguing code standing for digits it has not established rather than a date, so 'date' and 'year' are null. 'date_stated' repeats what the record itself says about when it was made.`,
+      );
+    }
 
     if (!data.rights) notes.push(RIGHTS_CAVEAT);
 
