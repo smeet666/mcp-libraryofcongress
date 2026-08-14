@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "mcp-libraryofcongress",
   "display_name": "Library of Congress",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "MCP server for the Library of Congress. Search inside digitised newspaper pages, browse the catalogue by format, and read records and collections. No API key required.",
   "long_description": "Search the text scanned off digitised American newspaper pages, search the Library of Congress catalogue by kind of thing, read one record section by section, and list the collections a curator built. No API key, no account.\n\nThe newspaper search is what this server exists for: it reads what optical recognition took off millions of scanned pages, so it finds a phrase that appears in no title and no catalogue record, and returns the paper, the date, the leaf and a link that opens it with the query applied.",
   "author": {

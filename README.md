@@ -300,8 +300,11 @@ console.log(data.paging.resultCount, data.hits[0]?.sourceUrl);
 ## Troubleshooting
 
 **`rate_limited`.** The site asked this client to slow down, or this server was
-asked for more than its pacing allows. It says nothing about whether the Library
-holds what you asked for. Wait and ask again.
+asked for more than its pacing allows. It also covers a search the site could
+not run: it answers then with a page holding no rows and refuses to have that
+page kept, and a count of nothing read off it would say the Library holds
+nothing. It says nothing about whether the Library holds what you asked for.
+Wait and ask again.
 
 **`parse_failure`.** A response arrived in a shape this server cannot read,
 which includes a long answer cut off in transit. It usually means a route
@@ -660,7 +663,10 @@ console.log(data.paging.resultCount, data.hits[0]?.sourceUrl);
 ## Dépannage
 
 **`rate_limited`.** Le site demande à ce client de ralentir, ou ce serveur a été
-sollicité au-delà de sa cadence. Cela ne dit rien de ce que la Library conserve.
+sollicité au-delà de sa cadence. Ce code couvre aussi une recherche que le site
+n'a pas pu exécuter : il répond alors par une page sans aucune ligne et refuse
+qu'elle soit conservée, et un compte de zéro lu sur cette page affirmerait que
+la Library ne conserve rien. Cela ne dit rien de ce que la Library conserve.
 Attendez et redemandez.
 
 **`parse_failure`.** Une réponse est arrivée dans une forme illisible pour ce

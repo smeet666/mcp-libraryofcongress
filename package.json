@@ -1,6 +1,6 @@
 {
   "name": "mcp-libraryofcongress",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "MCP server for the Library of Congress. Search inside digitised newspaper pages, browse the catalogue by format, and read records and collections. No API key required.",
   "keywords": [
     "mcp",

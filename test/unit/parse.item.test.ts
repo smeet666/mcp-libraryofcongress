@@ -107,4 +107,27 @@ describe("collections", () => {
     expect(skip.total()).toBe(1);
     expect(paging.resultCount).toBe(583);
   });
+
+  it("reports a corpus the site says holds nothing as holding nothing", () => {
+    const skip = skipCounter();
+    const { collections, paging } = toCollections(
+      fixture("collections-empty"),
+      URL,
+      skip.onSkip,
+      true,
+    );
+
+    expect(collections).toEqual([]);
+    expect(paging.resultCount).toBe(0);
+  });
+
+  it("refuses to read a zero the site would not have its answer kept for", () => {
+    const skip = skipCounter();
+    const outcome = capture(() =>
+      toCollections(fixture("collections-empty"), URL, skip.onSkip, false),
+    );
+
+    expect(outcome.threw).toBe(true);
+    expect((outcome.error as LocError).code).toBe("rate_limited");
+  });
 });

@@ -25,6 +25,13 @@ function clientFor(steps: Array<() => Response>) {
   return { client: new LocClient({ logger: silentLogger, fetchImpl }), count };
 }
 
+/**
+ * The site's answer while its search is failing: a rendered page holding no
+ * rows, which it refuses to have kept. A settled answer carries a lifetime.
+ */
+const unkeepable = (body: unknown) =>
+  jsonResponse(body, { headers: { "cache-control": "no-transform, no-cache, max-age=0" } });
+
 const structured = (result: ToolResult) => result.structuredContent as Record<string, unknown>;
 const text = (result: ToolResult) => result.content[0]!.text;
 const notesOf = (result: ToolResult) => structured(result).notes as string[];
@@ -233,6 +240,14 @@ describe("search_items", () => {
     expect(notesOf(result).join(" ")).toContain("Nothing in the books catalogue matches");
   });
 
+  it("reports a failing site as a failure rather than as a catalogue matching nothing", async () => {
+    const { client } = clientFor([() => unkeepable(fixture("catalogue-empty"))]);
+    const result = await settle(runSearchItems(client, itemArgs), AMPLE_MS);
+
+    expect(result.isError).toBe(true);
+    expect(text(result)).toContain("[rate_limited]");
+  });
+
   it("asks the site once when nothing was narrowed", async () => {
     const { client, count } = clientFor([() => jsonResponse(fixture("catalogue-empty"))]);
     await settle(runSearchItems(client, itemArgs), AMPLE_MS);
@@ -385,6 +400,23 @@ describe("get_item", () => {
 });
 
 describe("list_collections", () => {
+  it("reports a failing site as a failure rather than as a Library holding nothing", async () => {
+    const { client } = clientFor([() => unkeepable(fixture("collections-empty"))]);
+    const result = await settle(
+      runListCollections(client, {
+        limit: 2,
+        page: 1,
+        searchable_only: false,
+        max_description_chars: 300,
+      }),
+      AMPLE_MS,
+    );
+
+    expect(result.isError).toBe(true);
+    expect(text(result)).toContain("[rate_limited]");
+    expect(text(result)).not.toContain("published no collection");
+  });
+
   it("counts collections rather than the rows it shows", async () => {
     const { client } = clientFor([() => jsonResponse(fixture("collections"))]);
     const result = await settle(

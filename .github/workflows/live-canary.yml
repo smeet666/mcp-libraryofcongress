@@ -7,6 +7,10 @@
 #
 # It is deliberately separate from CI: it depends on a third-party service, so a
 # failure here means "the site moved", never "this pull request is bad".
+#
+# A run where the site refused, timed out or could not be reached leaves those
+# cases out and stays green, naming each on stderr. A canary that reddens on a
+# bad night is one nobody reads by the time the contract really moves.
 
 name: Live canary
 
@@ -54,8 +58,9 @@ jobs:
             const title = "Live canary failing: the Library of Congress site may have changed";
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const body = [
-              "The nightly live canary failed. Either the Library changed a route this",
-              "server reads, or it was unreachable from the runner.",
+              "The nightly live canary failed, which says the Library answered something this",
+              "server could not read. A run where the site refused, timed out or could not be",
+              "reached leaves the case out and stays green, so this is a contract that moved.",
               "",
               `Run: ${runUrl}`,
               "",

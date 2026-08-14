@@ -112,7 +112,7 @@ export class LocClient {
   private async read<T>(
     cacheKey: string,
     url: string,
-    parse: (payload: unknown, onSkip: (n: number) => void) => T,
+    parse: (payload: unknown, onSkip: (n: number) => void, settled: boolean) => T,
     timeoutMs: number = this.config.timeoutMs,
   ): Promise<Read<T>> {
     const cached = this.cache.get(cacheKey) as T | undefined;
@@ -122,7 +122,7 @@ export class LocClient {
     }
 
     let skipped = 0;
-    const payload = await this.limiter.schedule(() =>
+    const { payload, settled } = await this.limiter.schedule(() =>
       fetchJson({
         url,
         userAgent: this.config.userAgent,
@@ -134,17 +134,23 @@ export class LocClient {
       }),
     );
 
-    const data = parse(payload, (n) => {
-      skipped += n;
-      this.logger.warn(`skipped ${n} unreadable row(s) from ${url}`);
-    });
+    const data = parse(
+      payload,
+      (n) => {
+        skipped += n;
+        this.logger.warn(`skipped ${n} unreadable row(s) from ${url}`);
+      },
+      settled,
+    );
     this.cache.set(cacheKey, data);
     return skipped > 0 ? { data, cached: false, skipped } : { data, cached: false };
   }
 
   searchItems(query: CatalogueQuery): Promise<Read<SearchResults>> {
     const url = catalogueUrl(query);
-    return this.read(url, url, (payload, onSkip) => toSearchResults(payload, url, onSkip));
+    return this.read(url, url, (payload, onSkip, settled) =>
+      toSearchResults(payload, url, onSkip, settled),
+    );
   }
 
   searchNewspapers(
@@ -163,7 +169,8 @@ export class LocClient {
     return this.read(
       key,
       url,
-      (payload, onSkip) => toNewspaperResults(payload, url, trimmed, budget, onSkip),
+      (payload, onSkip, settled) =>
+        toNewspaperResults(payload, url, trimmed, budget, onSkip, settled),
       // Reading the text of millions of pages takes the site far longer than
       // answering from the catalogue, so this route carries a budget of its own.
       this.config.newspaperTimeoutMs,
@@ -181,6 +188,8 @@ export class LocClient {
 
   listCollections(limit: number, page: number): Promise<Read<CollectionResults>> {
     const url = collectionsUrl(limit, page);
-    return this.read(url, url, (payload, onSkip) => toCollections(payload, url, onSkip));
+    return this.read(url, url, (payload, onSkip, settled) =>
+      toCollections(payload, url, onSkip, settled),
+    );
   }
 }
