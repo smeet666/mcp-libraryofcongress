@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.1.2
+
+- A search the Library could not run is reported as a failure instead of as an
+  empty catalogue. Under load the site answers with a rendered page holding no
+  rows and a pagination block counting zero results, written in exactly the
+  words a search that genuinely matched nothing is written in: the collections
+  listing, which holds 584 collections and takes no query at all, came back as
+  `of: 0` beside an empty `results`, and the server published that as the
+  Library having gathered no collection. What separates the two is what the site
+  says about keeping the answer. A search it stands behind may be kept for a
+  day; the page it renders while its search is failing carries `no-cache` and a
+  lifetime of zero. A count of zero read off such a page is now `rate_limited`,
+  which says the site could not answer and says nothing about what the Library
+  holds. The catalogue, newspaper and collections searches all read their count
+  from that block, so all three are covered. A search that really matches
+  nothing still answers with a count of zero.
+- The nightly live canary tells a contract that moved apart from a site that
+  could not answer. A route that came back rate limited, unreachable or out of
+  time leaves that case out of the run and names it on stderr, so only an answer
+  this server could not read fails the canary and opens an issue. Each assertion
+  states the field or the behaviour it holds the site to.
+
 ## 2.1.1
 
 - The README carries the same badge row as every server here: npm, CI, the

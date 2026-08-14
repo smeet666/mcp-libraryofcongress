@@ -66,6 +66,24 @@ describe("catalogue rows", () => {
     expect(skip.total()).toBe(0);
   });
 
+  it("refuses to read a zero the site would not have its answer kept for", () => {
+    const skip = skipCounter();
+    const outcome = capture(() =>
+      toSearchResults(fixture("catalogue-empty"), URL, skip.onSkip, false),
+    );
+
+    expect(outcome.threw).toBe(true);
+    expect((outcome.error as LocError).code).toBe("rate_limited");
+  });
+
+  it("reads a count the site published beside rows whether or not it keeps the answer", () => {
+    const skip = skipCounter();
+    const { paging, records } = toSearchResults(fixture("catalogue"), URL, skip.onSkip, false);
+
+    expect(paging.resultCount).toBe(431);
+    expect(records).toHaveLength(2);
+  });
+
   it("keeps the count when a page past the last one returns no rows", () => {
     const skip = skipCounter();
     const { paging, records } = toSearchResults(fixture("catalogue-past-end"), URL, skip.onSkip);

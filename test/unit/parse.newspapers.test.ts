@@ -80,6 +80,16 @@ describe("newspaper pages", () => {
     expect(data.paging.resultCount).toBe(0);
   });
 
+  it("refuses to read a zero the site would not have its answer kept for", () => {
+    const skip = skipCounter();
+    const outcome = capture(() =>
+      toNewspaperResults(fixture("newspapers-empty"), URL, "lamps", BUDGET, skip.onSkip, false),
+    );
+
+    expect(outcome.threw).toBe(true);
+    expect((outcome.error as LocError).code).toBe("rate_limited");
+  });
+
   it("fails to parse rather than reporting nothing when no row could be read", () => {
     const skip = skipCounter();
     const outcome = capture(() =>

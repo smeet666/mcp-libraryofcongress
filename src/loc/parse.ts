@@ -8,7 +8,7 @@
  * where a parser is given a counter, the rows it dropped are reported.
  */
 
-import { notFound, parseFailure } from "../errors.js";
+import { notFound, parseFailure, rateLimited } from "../errors.js";
 import type {
   CollectionResults,
   CollectionSummary,
@@ -296,7 +296,7 @@ export function plainText(value: string): string {
  * names invite the opposite reading, and taking one for the other reports a
  * corpus of four hundred thousand pages as two hundred thousand.
  */
-export function toPaging(payload: unknown, url: string): Paging {
+export function toPaging(payload: unknown, url: string, settled = true): Paging {
   const root = asObject(payload);
   const pagination = root ? asObject(root.pagination) : null;
   if (!pagination) {
@@ -312,6 +312,17 @@ export function toPaging(payload: unknown, url: string): Paging {
     // Returning zero for a count that could not be read publishes an absence
     // the response never established.
     throw parseFailure("The answer carried no readable count of results.", { url });
+  }
+  if (resultCount === 0 && !settled) {
+    // The site renders an empty page while its search is failing, and that page
+    // states a count of nothing in the same words a search that matched nothing
+    // does. What separates them is that the site withdraws the lifetime it
+    // gives an answer it stands behind. Published as a zero, the failing one
+    // says the Library holds nothing.
+    throw rateLimited(
+      "The Library of Congress answered with no results and asked that the answer not be kept, which is how the site answers while its search is failing.",
+      { url },
+    );
   }
   return {
     resultCount,
@@ -369,6 +380,7 @@ export function toSearchResults(
   payload: unknown,
   url: string,
   onSkip: (n: number) => void,
+  settled = true,
 ): SearchResults {
   const rows = rowsOf(payload, url);
   const records: RecordSummary[] = [];
@@ -413,7 +425,7 @@ export function toSearchResults(
   }
   // Paging follows the count the site reported, not the count that survived
   // reading: a shortened page reads as the end of the results.
-  return { paging: toPaging(payload, url), records };
+  return { paging: toPaging(payload, url, settled), records };
 }
 
 /**
@@ -575,6 +587,7 @@ export function toNewspaperResults(
   query: string,
   budget: ExcerptBudget,
   onSkip: (n: number) => void,
+  settled = true,
 ): NewspaperResults {
   const rows = rowsOf(payload, url);
   const terms = queryTerms(query);
@@ -617,7 +630,7 @@ export function toNewspaperResults(
   if (rows.length > 0 && hits.length === 0) {
     throw parseFailure(`${rows.length} matches came back and none could be read.`, { url });
   }
-  return { paging: toPaging(payload, url), hits };
+  return { paging: toPaging(payload, url, settled), hits };
 }
 
 function toResources(value: unknown): ItemResource[] {
@@ -717,6 +730,7 @@ export function toCollections(
   payload: unknown,
   url: string,
   onSkip: (n: number) => void,
+  settled = true,
 ): CollectionResults {
   const rows = rowsOf(payload, url);
   const collections: CollectionSummary[] = [];
@@ -747,5 +761,5 @@ export function toCollections(
   if (rows.length > 0 && collections.length === 0) {
     throw parseFailure(`${rows.length} collections came back and none could be read.`, { url });
   }
-  return { paging: toPaging(payload, url), collections };
+  return { paging: toPaging(payload, url, settled), collections };
 }

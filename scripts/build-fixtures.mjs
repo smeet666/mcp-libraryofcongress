@@ -24,17 +24,32 @@ const write = (name, value) => {
 /**
  * The paging block, whose two counts are the trap this corpus exists to catch:
  * `of` counts results and `total` counts pages.
+ *
+ * A search matching nothing is written the way the site writes it: no row is
+ * numbered, and the one page is the empty page a caller is standing on.
  */
-const paging = (resultCount, perPage, current = 1) => ({
-  current,
-  from: (current - 1) * perPage + 1,
-  of: resultCount,
-  perpage: perPage,
-  results: `${(current - 1) * perPage + 1} - ${current * perPage}`,
-  to: current * perPage,
-  total: Math.ceil(resultCount / perPage),
-  page_list: [{ number: 1, url: null }],
-});
+const paging = (resultCount, perPage, current = 1) =>
+  resultCount === 0
+    ? {
+        current,
+        from: 0,
+        of: 0,
+        perpage: perPage,
+        results: "0 - 0",
+        to: 0,
+        total: 1,
+        page_list: [{ number: 1, url: null }],
+      }
+    : {
+        current,
+        from: (current - 1) * perPage + 1,
+        of: resultCount,
+        perpage: perPage,
+        results: `${(current - 1) * perPage + 1} - ${current * perPage}`,
+        to: current * perPage,
+        total: Math.ceil(resultCount / perPage),
+        page_list: [{ number: 1, url: null }],
+      };
 
 write("catalogue.json", {
   pagination: paging(431, 3),
@@ -243,5 +258,7 @@ write("collections.json", {
     { count: 3 },
   ],
 });
+
+write("collections-empty.json", { pagination: paging(0, 3), results: [] });
 
 console.log("fixtures written to test/fixtures");

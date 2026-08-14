@@ -74,7 +74,37 @@ function backoffMs(attempt: number): number {
   return base + Math.floor(Math.random() * 500);
 }
 
-export async function fetchText(options: FetchOptions): Promise<string> {
+/** One answer, with what the site said about standing behind it. */
+export interface Answer<T> {
+  payload: T;
+  /**
+   * The site allows the answer to be kept.
+   *
+   * A search the site rendered while its index was failing comes back with a
+   * lifetime of zero and `no-cache`, where the same empty page carries a day's
+   * lifetime when the search really did match nothing. So a page the site will
+   * not have kept is a page it has not settled, and a count read off it states
+   * nothing about what the Library holds.
+   */
+  settled: boolean;
+}
+
+/**
+ * Whether the site stands behind what it just sent, read off the lifetime it
+ * gives the answer. An answer that states no lifetime is taken as settled,
+ * since saying nothing is not a refusal.
+ */
+export function statesASettledAnswer(cacheControl: string | null): boolean {
+  if (cacheControl === null) return true;
+  const directives = cacheControl
+    .toLowerCase()
+    .split(",")
+    .map((directive) => directive.trim());
+  if (directives.includes("no-cache") || directives.includes("no-store")) return false;
+  return !directives.some((directive) => /^(?:max-age|s-maxage)\s*=\s*0$/.test(directive));
+}
+
+export async function fetchText(options: FetchOptions): Promise<Answer<string>> {
   const { url, userAgent, timeoutMs, maxRetries, limiter, logger } = options;
   const doFetch = options.fetchImpl ?? fetch;
 
@@ -103,7 +133,8 @@ export async function fetchText(options: FetchOptions): Promise<string> {
 
       if (response.ok) {
         limiter.succeeded();
-        return await response.text();
+        const settled = statesASettledAnswer(response.headers.get("cache-control"));
+        return { payload: await response.text(), settled };
       }
 
       if (PUSH_BACK.has(response.status)) {
@@ -198,10 +229,10 @@ export async function fetchText(options: FetchOptions): Promise<string> {
 }
 
 /** Fetch and parse JSON, keeping the two failures apart. */
-export async function fetchJson<T = unknown>(options: FetchOptions): Promise<T> {
-  const body = await fetchText(options);
+export async function fetchJson<T = unknown>(options: FetchOptions): Promise<Answer<T>> {
+  const { payload, settled } = await fetchText(options);
   try {
-    return JSON.parse(body) as T;
+    return { payload: JSON.parse(payload) as T, settled };
   } catch {
     // A long answer that arrives cut off lands here as well as a page of HTML,
     // and both mean the same thing to a caller: nothing readable came back.

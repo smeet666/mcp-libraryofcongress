@@ -127,10 +127,40 @@ describe("one request", () => {
       () => new Response("busy", { status: 503, headers: { "retry-after": "1" } }),
       () => jsonResponse({ ok: true }),
     ]);
-    const body = await settle(fetchText(options(fetchImpl)), 120_000);
+    const answer = await settle(fetchText(options(fetchImpl)), 120_000);
 
-    expect(body).toBe('{"ok":true}');
+    expect(answer.payload).toBe('{"ok":true}');
     expect(count()).toBe(2);
+  });
+
+  it("reads an answer the site allows to be kept as one the site stands behind", async () => {
+    const { fetchImpl } = scriptedFetch([
+      () =>
+        jsonResponse({ ok: true }, { headers: { "cache-control": "no-transform, max-age=86400" } }),
+    ]);
+    const answer = await settle(fetchJson(options(fetchImpl)), 60_000);
+
+    expect(answer.settled).toBe(true);
+  });
+
+  it("takes an answer the site refuses to have kept as one it does not stand behind", async () => {
+    const { fetchImpl } = scriptedFetch([
+      () =>
+        jsonResponse(
+          { ok: true },
+          { headers: { "cache-control": "no-transform, no-cache, max-age=0" } },
+        ),
+    ]);
+    const answer = await settle(fetchJson(options(fetchImpl)), 60_000);
+
+    expect(answer.settled).toBe(false);
+  });
+
+  it("reads an answer saying nothing about keeping it as one the site stands behind", async () => {
+    const { fetchImpl } = scriptedFetch([() => jsonResponse({ ok: true })]);
+    const answer = await settle(fetchJson(options(fetchImpl)), 60_000);
+
+    expect(answer.settled).toBe(true);
   });
 
   it("gives up on a request that never answers rather than holding the slot", async () => {
