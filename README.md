@@ -2,9 +2,11 @@
 
 [![npm](https://img.shields.io/npm/v/mcp-libraryofcongress.svg)](https://www.npmjs.com/package/mcp-libraryofcongress)
 [![CI](https://github.com/smeet666/mcp-libraryofcongress/actions/workflows/ci.yml/badge.svg)](https://github.com/smeet666/mcp-libraryofcongress/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/mcp-libraryofcongress.svg)](LICENSE)
+[![license](https://img.shields.io/npm/l/mcp-libraryofcongress.svg)](./LICENSE)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-6E56CF)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.smeet666/mcp-libraryofcongress)
 [![Glama](https://glama.ai/mcp/servers/smeet666/mcp-libraryofcongress/badges/score.svg)](https://glama.ai/mcp/servers/smeet666/mcp-libraryofcongress)
+[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=libraryofcongress&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIm1jcC1saWJyYXJ5b2Zjb25ncmVzcyJdfQ%3D%3D)
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install-0098FF?style=flat&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=libraryofcongress&config=%7B%22name%22%3A%22libraryofcongress%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22mcp-libraryofcongress%22%5D%7D)
 
 An MCP server for the [Library of Congress](https://www.loc.gov). **Search the
 text scanned off digitised American newspaper pages**, search the catalogue by
