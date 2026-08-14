@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1
+
+- The README carries the same badge row as every server here: npm, CI, the
+  licence, the MCP registry entry, the Glama score, and one-click installs for
+  Cursor and VS Code. Each install link encodes this package. npm serves the
+  README frozen at publish time, so a release is what puts it there.
+
 ## 2.1.0
 
 - A catalogue row pointing at a collection no longer claims an identifier
