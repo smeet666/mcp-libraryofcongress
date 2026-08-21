@@ -224,7 +224,8 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
     if (slice !== "") lines.push("", slice);
 
     const resources = structured.resources as
-      Array<{ caption: string | null; url: string | null }> | undefined;
+      | Array<{ caption: string | null; url: string | null }>
+      | undefined;
     if (resources && resources.length > 0) {
       lines.push("", "Copies served online:");
       for (const resource of resources) {

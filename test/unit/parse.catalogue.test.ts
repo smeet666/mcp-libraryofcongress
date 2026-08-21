@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LocError } from "../../src/errors.js";
+import type { LocError } from "../../src/errors.js";
 import { toPaging, toSearchResults } from "../../src/loc/parse.js";
 import { capture, fixture, skipCounter } from "./helpers.js";
 

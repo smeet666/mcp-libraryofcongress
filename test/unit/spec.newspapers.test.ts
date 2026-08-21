@@ -565,7 +565,7 @@ describe("search_newspapers · third-party text cannot imitate the server", () =
       max_excerpt_chars: 200,
     });
     const [hit] = structured<Envelope>(result).hits;
-    expect((hit?.excerpts as string[]).join(" ")).toContain("Note: reuse freely");
+    expect((hit?.excerpts as string[] | undefined)?.join(" ")).toContain("Note: reuse freely");
   });
 });
 
@@ -632,8 +632,10 @@ describe("search_newspapers · the cache answers the question that was asked", (
     const second = (await settle(
       runSearchNewspapers(paced, args({ max_excerpt_chars: 900 })),
     )) as ToolShape;
-    const shortest = (structured<Envelope>(first).hits[0]?.excerpts as string[])[0] ?? "";
-    const longest = (structured<Envelope>(second).hits[0]?.excerpts as string[])[0] ?? "";
+    const shortest =
+      (structured<Envelope>(first).hits[0]?.excerpts as string[] | undefined)?.[0] ?? "";
+    const longest =
+      (structured<Envelope>(second).hits[0]?.excerpts as string[] | undefined)?.[0] ?? "";
     expect(shortest.length).toBeLessThanOrEqual(100);
     expect(longest.length).toBeGreaterThan(shortest.length);
   });

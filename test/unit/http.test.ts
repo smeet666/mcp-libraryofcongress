@@ -64,7 +64,9 @@ describe("one request", () => {
 
     await settle(fetchText(options(fetchImpl)), 60_000);
 
-    expect((calls[0]?.headers as Record<string, string>)["user-agent"]).toBe("test-agent");
+    expect((calls[0]?.headers as Record<string, string> | undefined)?.["user-agent"]).toBe(
+      "test-agent",
+    );
   });
 
   it("reports a refusal to run the request as the caller's to fix", async () => {
