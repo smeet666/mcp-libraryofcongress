@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
+import type { z } from "zod";
 import { INSTRUCTIONS, createServer } from "../../src/server.js";
 import { loadConfig } from "../../src/config.js";
 import { getItemInput, getItemOutput } from "../../src/tools/getItem.js";

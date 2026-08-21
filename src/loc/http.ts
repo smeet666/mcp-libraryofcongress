@@ -216,7 +216,6 @@ export async function fetchText(options: FetchOptions): Promise<Answer<string>> 
         });
       }
       askedWaitMs = backoffMs(attempt);
-      continue;
     } finally {
       clearTimeout(deadline);
     }
