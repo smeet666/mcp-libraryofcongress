@@ -123,7 +123,9 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
     const wanted = new Set(args.sections);
     const { data, cached } = await client.getItem(args.identifier);
     const notes: string[] = [];
-    if (cached) notes.push("Served from this server's short-lived in-memory cache.");
+    if (cached) {
+      notes.push("Served from this server's short-lived in-memory cache.");
+    }
 
     const full = data.description ?? "";
 
@@ -192,7 +194,9 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
         notes.push("The Library serves no copy of this record online.");
       }
     }
-    if (wanted.has("full_metadata")) structured.full_metadata = data.raw ?? {};
+    if (wanted.has("full_metadata")) {
+      structured.full_metadata = data.raw ?? {};
+    }
 
     // A record covering a span is filed under the first year of that span, so
     // the date beside it is where the catalogue sorts the record rather than
@@ -209,7 +213,9 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
       );
     }
 
-    if (!data.rights) notes.push(RIGHTS_CAVEAT);
+    if (!data.rights) {
+      notes.push(RIGHTS_CAVEAT);
+    }
 
     const lines = [
       [data.title ?? data.identifier, data.date ? `(${data.date})` : ""].filter(Boolean).join(" "),
@@ -221,7 +227,9 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
       data.rights ? `Rights: ${data.rights}` : "",
     ].filter(Boolean);
 
-    if (slice !== "") lines.push("", slice);
+    if (slice !== "") {
+      lines.push("", slice);
+    }
 
     const resources = structured.resources as
       | Array<{ caption: string | null; url: string | null }>

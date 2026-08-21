@@ -116,7 +116,9 @@ describe("search_newspapers", () => {
     const hits = structured(result).hits as Array<{ excerpts: string[] }>;
 
     for (const hit of hits) {
-      for (const excerpt of hit.excerpts) expect(excerpt.length).toBeLessThanOrEqual(102);
+      for (const excerpt of hit.excerpts) {
+        expect(excerpt.length).toBeLessThanOrEqual(102);
+      }
     }
   });
 

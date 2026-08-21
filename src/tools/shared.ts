@@ -84,7 +84,9 @@ export function ok(
 
   // A long run of notes must not crowd out the answer it qualifies.
   const noteLines = (options.notes ?? []).map((note) => `Note: ${note}`);
-  while (noteLines.length > 0 && noteLines.join("\n").length > MAX_TEXT_CHARS / 2) noteLines.pop();
+  while (noteLines.length > 0 && noteLines.join("\n").length > MAX_TEXT_CHARS / 2) {
+    noteLines.pop();
+  }
   const trailer = [...noteLines, credit].join("\n");
 
   const cut = "\n\n[shortened; the full result is in the structured output]";
@@ -109,7 +111,9 @@ export function toToolError(error: unknown): ToolResult {
       : new LocError("network_error", error instanceof Error ? error.message : String(error));
 
   const lines = [`[${known.code}] ${known.message}`];
-  if (known.details.hint) lines.push(`Hint: ${known.details.hint}`);
+  if (known.details.hint) {
+    lines.push(`Hint: ${known.details.hint}`);
+  }
   return { content: [{ type: "text", text: lines.join("\n") }], isError: true };
 }
 
@@ -130,7 +134,9 @@ export function counted(n: number, singular: string, plural = `${singular}s`): s
 }
 
 export function truncate(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
+  if (text.length <= maxChars) {
+    return text;
+  }
   return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
 }
 
@@ -145,7 +151,9 @@ export function sliceAtLineBoundary(
   maxChars: number,
 ): { slice: string; nextOffset: number | null } {
   const rest = text.slice(offset);
-  if (rest.length <= maxChars) return { slice: rest, nextOffset: null };
+  if (rest.length <= maxChars) {
+    return { slice: rest, nextOffset: null };
+  }
 
   const window = rest.slice(0, maxChars);
   const lastBreak = window.lastIndexOf("\n");
@@ -154,13 +162,15 @@ export function sliceAtLineBoundary(
   // Never cut between the two halves of a surrogate pair: both pages would show
   // a replacement character and no offset could ever reassemble it.
   const code = rest.charCodeAt(cut - 1);
-  if (code >= 0xd800 && code <= 0xdbff) cut -= 1;
+  if (code >= 0xd800 && code <= 0xdbff) {
+    cut -= 1;
+  }
 
   return { slice: rest.slice(0, cut), nextOffset: offset + cut };
 }
 
 /** A compact listing, carrying what it takes to pick one record out of many. */
-export function renderRecords(records: Array<z.infer<typeof recordSchema>>): string {
+export function renderRecords(records: z.infer<typeof recordSchema>[]): string {
   return records
     .map((record, index) => {
       const bits = [

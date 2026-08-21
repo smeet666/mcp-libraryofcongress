@@ -53,7 +53,7 @@ interface Detail {
   rights: string | null;
   notes: string[];
   citations?: Record<string, string>;
-  resources?: Array<Record<string, unknown>>;
+  resources?: Record<string, unknown>[];
   full_metadata?: Record<string, unknown>;
 }
 

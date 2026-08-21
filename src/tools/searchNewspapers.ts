@@ -147,8 +147,12 @@ const QUOTED_PHRASE = /"[^"]+"/;
 /** The optional narrowing, named as a caller wrote it, for the note. */
 function describeNarrowing(args: SearchNewspapersArgs): string[] {
   const written: string[] = [];
-  if (args.location) written.push(`location="${args.location}"`);
-  if (args.publication) written.push(`publication="${args.publication}"`);
+  if (args.location) {
+    written.push(`location="${args.location}"`);
+  }
+  if (args.publication) {
+    written.push(`publication="${args.publication}"`);
+  }
   if (args.year_from !== undefined || args.year_to !== undefined) {
     written.push(`years ${args.year_from ?? "any"} to ${args.year_to ?? "any"}`);
   }
@@ -177,7 +181,9 @@ export async function runSearchNewspapers(
 
     const facets: Facets = {};
     const put = (field: FacetField, value: string | undefined) => {
-      if (value && value.trim() !== "") facets[field] = value;
+      if (value && value.trim() !== "") {
+        facets[field] = value;
+      }
     };
     put("state", args.location);
     put("publication", args.publication);
@@ -185,8 +191,8 @@ export async function runSearchNewspapers(
     const narrowing = describeNarrowing(args);
     const filters = {
       facets,
-      ...(args.year_from !== undefined ? { yearFrom: args.year_from } : {}),
-      ...(args.year_to !== undefined ? { yearTo: args.year_to } : {}),
+      ...(args.year_from === undefined ? {} : { yearFrom: args.year_from }),
+      ...(args.year_to === undefined ? {} : { yearTo: args.year_to }),
     };
 
     const notes: string[] = [];
@@ -206,7 +212,9 @@ export async function runSearchNewspapers(
     }
 
     const { data, cached, skipped } = result;
-    if (cached) notes.push("Served from this server's short-lived in-memory cache.");
+    if (cached) {
+      notes.push("Served from this server's short-lived in-memory cache.");
+    }
     if (skipped) {
       notes.push(
         `${counted(skipped, "match", "matches")} came back in a shape this server could not read and ${agrees(skipped, "was", "were")} left out. The count above is what the Library reported.`,
@@ -228,7 +236,9 @@ export async function runSearchNewspapers(
     }));
 
     const total = data.paging.resultCount;
-    if (hits.length > 0) notes.push(OCR_CAVEAT);
+    if (hits.length > 0) {
+      notes.push(OCR_CAVEAT);
+    }
 
     const openings = hits.filter(
       (hit) => hit.excerpt_kind === "page_opening" && hit.excerpts.length > 0,

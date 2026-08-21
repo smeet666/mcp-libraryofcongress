@@ -67,7 +67,7 @@ interface Envelope {
   query: string;
   total: number;
   page: number;
-  hits: Array<Record<string, unknown>>;
+  hits: Record<string, unknown>[];
   notes: string[];
 }
 

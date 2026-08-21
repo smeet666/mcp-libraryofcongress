@@ -57,14 +57,20 @@ const RETRIES_AFTER_SILENCE = 1;
  * Returns null when it says neither, so the caller falls back to its own wait.
  */
 export function parseRetryAfter(value: string | null, now = Date.now()): number | null {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
   const trimmed = value.trim();
 
   const seconds = Number(trimmed);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.round(seconds * 1000);
+  }
 
   const at = Date.parse(trimmed);
-  if (Number.isNaN(at)) return null;
+  if (Number.isNaN(at)) {
+    return null;
+  }
   return Math.max(0, at - now);
 }
 
@@ -95,12 +101,16 @@ export interface Answer<T> {
  * since saying nothing is not a refusal.
  */
 export function statesASettledAnswer(cacheControl: string | null): boolean {
-  if (cacheControl === null) return true;
+  if (cacheControl === null) {
+    return true;
+  }
   const directives = cacheControl
     .toLowerCase()
     .split(",")
     .map((directive) => directive.trim());
-  if (directives.includes("no-cache") || directives.includes("no-store")) return false;
+  if (directives.includes("no-cache") || directives.includes("no-store")) {
+    return false;
+  }
   return !directives.some((directive) => /^(?:max-age|s-maxage)\s*=\s*0$/.test(directive));
 }
 
@@ -195,7 +205,9 @@ export async function fetchText(options: FetchOptions): Promise<Answer<string>> 
       clearTimeout(deadline);
 
       // An error this module raised on purpose already says what happened.
-      if (error instanceof Error && error.name === "LocError") throw error;
+      if (error instanceof Error && error.name === "LocError") {
+        throw error;
+      }
 
       if (error instanceof Error && error.name === "AbortError") {
         lastError = error;

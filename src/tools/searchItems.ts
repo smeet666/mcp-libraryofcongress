@@ -89,10 +89,18 @@ export type SearchItemsArgs = z.infer<typeof searchItemsInput>;
 /** The optional narrowing, named as a caller wrote it, for the note. */
 function describeNarrowing(args: SearchItemsArgs): string[] {
   const written: string[] = [];
-  if (args.subject) written.push(`subject="${args.subject}"`);
-  if (args.location) written.push(`location="${args.location}"`);
-  if (args.language) written.push(`language="${args.language}"`);
-  if (args.collection) written.push(`collection="${args.collection}"`);
+  if (args.subject) {
+    written.push(`subject="${args.subject}"`);
+  }
+  if (args.location) {
+    written.push(`location="${args.location}"`);
+  }
+  if (args.language) {
+    written.push(`language="${args.language}"`);
+  }
+  if (args.collection) {
+    written.push(`collection="${args.collection}"`);
+  }
   if (args.year_from !== undefined || args.year_to !== undefined) {
     written.push(`years ${args.year_from ?? "any"} to ${args.year_to ?? "any"}`);
   }
@@ -108,9 +116,15 @@ function describeNarrowing(args: SearchItemsArgs): string[] {
  */
 function whereTheWordingIs(args: SearchItemsArgs): string[] {
   const advice: string[] = [];
-  if (args.subject) advice.push("a subject is spelled as 'subjects' spells it on a row");
-  if (args.location) advice.push("a place is spelled as 'location' spells it on a row");
-  if (args.language) advice.push('a language is written in English, as in "english"');
+  if (args.subject) {
+    advice.push("a subject is spelled as 'subjects' spells it on a row");
+  }
+  if (args.location) {
+    advice.push("a place is spelled as 'location' spells it on a row");
+  }
+  if (args.language) {
+    advice.push('a language is written in English, as in "english"');
+  }
   if (args.collection) {
     advice.push("a collection is spelled as list_collections reports it under 'collection_filter'");
   }
@@ -156,7 +170,9 @@ async function askCatalogue(
   try {
     return await client.searchItems(query);
   } catch (error) {
-    if (!(error instanceof LocError) || error.code !== "not_found" || page <= 1) throw error;
+    if (!(error instanceof LocError) || error.code !== "not_found" || page <= 1) {
+      throw error;
+    }
     const first = await client.searchItems({ ...query, page: 1 });
     return { data: { paging: first.data.paging, records: [] }, cached: first.cached };
   }
@@ -191,7 +207,9 @@ export async function runSearchItems(
 
     const facets: Facets = {};
     const put = (field: FacetField, value: string | undefined) => {
-      if (value && value.trim() !== "") facets[field] = value;
+      if (value && value.trim() !== "") {
+        facets[field] = value;
+      }
     };
     put("subject", args.subject);
     put("location", args.location);
@@ -210,8 +228,8 @@ export async function runSearchItems(
     const narrowed = {
       ...wide,
       facets,
-      ...(args.year_from !== undefined ? { yearFrom: args.year_from } : {}),
-      ...(args.year_to !== undefined ? { yearTo: args.year_to } : {}),
+      ...(args.year_from === undefined ? {} : { yearFrom: args.year_from }),
+      ...(args.year_to === undefined ? {} : { yearTo: args.year_to }),
     };
 
     const notes: string[] = [];
@@ -235,7 +253,9 @@ export async function runSearchItems(
     }
 
     const { data, cached, skipped } = result;
-    if (cached) notes.push("Served from this server's short-lived in-memory cache.");
+    if (cached) {
+      notes.push("Served from this server's short-lived in-memory cache.");
+    }
     if (skipped) {
       notes.push(
         `${counted(skipped, "row")} came back in a shape this server could not read and ${agrees(skipped, "was", "were")} left out.`,

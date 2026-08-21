@@ -35,7 +35,9 @@ describe("addresses", () => {
       itemDocumentUrl("2017645459"),
     ];
 
-    for (const url of built) expect(new URL(url).pathname.startsWith("/search")).toBe(false);
+    for (const url of built) {
+      expect(new URL(url).pathname.startsWith("/search")).toBe(false);
+    }
   });
 
   it("asks for the two blocks it reads and no more", () => {

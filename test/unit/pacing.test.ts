@@ -67,7 +67,9 @@ describe("spacing between requests", () => {
 
   it("stays at its base after a run of clean answers", () => {
     const limiter = new RateLimiter({ intervalMs: 6000 });
-    for (let i = 0; i < 10; i += 1) limiter.succeeded();
+    for (let i = 0; i < 10; i += 1) {
+      limiter.succeeded();
+    }
 
     expect(limiter.currentIntervalMs).toBe(6000);
   });

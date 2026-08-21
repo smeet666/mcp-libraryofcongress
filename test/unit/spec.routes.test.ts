@@ -266,7 +266,7 @@ describe("the User-Agent always reaches a human", () => {
     const recorder = omniFetch();
     await settle(runListCollections(client(recorder.fetchImpl), listCollectionsInput.parse({})));
     const agent = String(
-      (recorder.headers[0] ?? {})["user-agent"] ?? (recorder.headers[0] ?? {})["User-Agent"],
+      recorder.headers[0]?.["user-agent"] ?? recorder.headers[0]?.["User-Agent"],
     );
     expect(agent).toContain("mcp-libraryofcongress");
     expect(agent).toContain(REPO_URL);
@@ -281,7 +281,7 @@ describe("the User-Agent always reaches a human", () => {
     });
     await settle(runListCollections(named, listCollectionsInput.parse({})));
     const agent = String(
-      (recorder.headers[0] ?? {})["user-agent"] ?? (recorder.headers[0] ?? {})["User-Agent"],
+      recorder.headers[0]?.["user-agent"] ?? recorder.headers[0]?.["User-Agent"],
     );
     expect(agent).toContain("SomebodyElse/1.0");
     expect(agent).toContain(REPO_URL);
@@ -297,7 +297,7 @@ describe("the User-Agent always reaches a human", () => {
     expect(anonymous.userAgent).toContain(REPO_URL);
     await settle(runListCollections(anonymous, listCollectionsInput.parse({})));
     const agent = String(
-      (recorder.headers[0] ?? {})["user-agent"] ?? (recorder.headers[0] ?? {})["User-Agent"],
+      recorder.headers[0]?.["user-agent"] ?? recorder.headers[0]?.["User-Agent"],
     );
     expect(agent).toContain(REPO_URL);
   });

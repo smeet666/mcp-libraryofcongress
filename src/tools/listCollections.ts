@@ -110,7 +110,9 @@ async function askCollections(
   try {
     return await client.listCollections(limit, page);
   } catch (error) {
-    if (!(error instanceof LocError) || error.code !== "not_found" || page <= 1) throw error;
+    if (!(error instanceof LocError) || error.code !== "not_found" || page <= 1) {
+      throw error;
+    }
     const first = await client.listCollections(limit, 1);
     return { data: { paging: first.data.paging, collections: [] }, cached: first.cached };
   }
@@ -123,7 +125,9 @@ export async function runListCollections(
   try {
     const { data, cached, skipped } = await askCollections(client, args.limit, args.page);
     const notes: string[] = [];
-    if (cached) notes.push("Served from this server's short-lived in-memory cache.");
+    if (cached) {
+      notes.push("Served from this server's short-lived in-memory cache.");
+    }
     if (skipped) {
       notes.push(
         `${counted(skipped, "row")} came back in a shape this server could not read and ${agrees(skipped, "was", "were")} left out.`,

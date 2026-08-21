@@ -205,7 +205,7 @@ describe("the error taxonomy the contract fixes", () => {
   }
 
   it("reports a code from the six, whatever goes wrong", async () => {
-    const cases: Array<[string, typeof fetch]> = [
+    const cases: [string, typeof fetch][] = [
       ["404", recordingFetch(() => jsonResponse({ status: 404 }, { status: 404 })).fetchImpl],
       ["429", recordingFetch(() => jsonResponse({}, { status: 429 })).fetchImpl],
       ["500", recordingFetch(() => jsonResponse({}, { status: 500 })).fetchImpl],
@@ -232,7 +232,9 @@ describe("the error taxonomy the contract fixes", () => {
     ) =>
       new Promise<Response>((_resolve, reject) => {
         const signal = init?.signal;
-        if (!signal) return;
+        if (!signal) {
+          return;
+        }
         if (signal.aborted) {
           reject(new DOMException("The operation was aborted.", "AbortError"));
           return;
@@ -300,7 +302,9 @@ describe("a read says what it knows about itself", () => {
       } as never),
     );
     const dropped = 3 - read.data.records.length;
-    if (dropped > 0) expect(read.skipped).toBe(dropped);
+    if (dropped > 0) {
+      expect(read.skipped).toBe(dropped);
+    }
     expect(read.data.paging.resultCount).toBe(12);
   });
 

@@ -63,7 +63,9 @@ export function routesNamedBy(formats: readonly string[]): FormatRoute[] {
   const named = new Set<FormatRoute>();
   for (const format of formats) {
     const route = COLLECTION_FORMAT_ROUTE[format.trim().toLowerCase()];
-    if (route) named.add(route);
+    if (route) {
+      named.add(route);
+    }
   }
   return FORMAT_ROUTES.filter((route) => named.has(route));
 }
