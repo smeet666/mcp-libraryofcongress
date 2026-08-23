@@ -64,7 +64,9 @@ live("the site itself", () => {
         page: 1,
       }),
     );
-    if (data === null) return;
+    if (data === null) {
+      return;
+    }
 
     expect(
       data.paging.resultCount,
@@ -92,7 +94,9 @@ live("the site itself", () => {
         page: 1,
       }),
     );
-    if (data === null) return;
+    if (data === null) {
+      return;
+    }
 
     expect(
       data.paging.resultCount,
@@ -107,7 +111,9 @@ live("the site itself", () => {
         maxCount: 2,
       }),
     );
-    if (data === null) return;
+    if (data === null) {
+      return;
+    }
 
     expect(
       data.paging.resultCount,
@@ -128,7 +134,9 @@ live("the site itself", () => {
 
   it("reads one record", async (ctx) => {
     const data = await readOrLeaveOut(ctx, "the item route", () => client.getItem("2017645459"));
-    if (data === null) return;
+    if (data === null) {
+      return;
+    }
 
     expect(data.title, "the item route no longer carries a title").toBeTruthy();
     expect(data.sourceUrl, "the item route no longer carries the address of the record").toContain(
@@ -140,7 +148,9 @@ live("the site itself", () => {
     const data = await readOrLeaveOut(ctx, "the item route, for a newspaper page", () =>
       client.getItem("sn83045462/1929-02-03/ed-1"),
     );
-    if (data === null) return;
+    if (data === null) {
+      return;
+    }
 
     expect(
       data.identifier,
@@ -170,7 +180,9 @@ live("the site itself", () => {
     const data = await readOrLeaveOut(ctx, "the collections route", () =>
       client.listCollections(3, 1),
     );
-    if (data === null) return;
+    if (data === null) {
+      return;
+    }
 
     expect(
       data.paging.resultCount,

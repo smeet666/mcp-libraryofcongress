@@ -57,14 +57,20 @@ const RETRIES_AFTER_SILENCE = 1;
  * Returns null when it says neither, so the caller falls back to its own wait.
  */
 export function parseRetryAfter(value: string | null, now = Date.now()): number | null {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
   const trimmed = value.trim();
 
   const seconds = Number(trimmed);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.round(seconds * 1000);
+  }
 
   const at = Date.parse(trimmed);
-  if (Number.isNaN(at)) return null;
+  if (Number.isNaN(at)) {
+    return null;
+  }
   return Math.max(0, at - now);
 }
 
@@ -90,17 +96,139 @@ export interface Answer<T> {
 }
 
 /**
+ * What a thrown attempt amounts to, or the error it has become.
+ *
+ * An error this module raised on purpose already says what happened. Silence is
+ * given fewer attempts than a refusal: the newspaper corpus in particular can
+ * take tens of seconds, and asking again costs both sides the same wait.
+ */
+function readFailure(
+  error: unknown,
+  attempts: { url: string; attempt: number; maxRetries: number; timeoutMs: number },
+): Error {
+  const { url, attempt, maxRetries, timeoutMs } = attempts;
+
+  if (error instanceof Error && error.name === "LocError") {
+    throw error;
+  }
+
+  if (error instanceof Error && error.name === "AbortError") {
+    if (attempt >= Math.min(maxRetries, RETRIES_AFTER_SILENCE)) {
+      throw timeoutError(
+        `No answer from the Library of Congress within ${timeoutMs}ms. The newspaper corpus in particular can take tens of seconds.`,
+        { url },
+      );
+    }
+    return error;
+  }
+
+  const failure = error instanceof Error ? error : new Error(String(error));
+  if (attempt >= maxRetries) {
+    throw networkError(`Could not reach the Library of Congress: ${failure.message}`, { url });
+  }
+  return failure;
+}
+
+/** What a refusal from the Library amounts to, and what it costs the pacing. */
+type Refusal =
+  | { kind: "refused"; error: Error; pushBack: boolean }
+  | { kind: "again"; waitMs: number; pushBack: boolean };
+
+/**
+ * Read a status the Library answered with, apart from the loop that retries.
+ *
+ * An abandoned body keeps its socket out of the pool until it is consumed or
+ * cancelled, so a body this never reads is cancelled here. A request the site
+ * read and would not run, and an address it holds nothing at, are settled
+ * questions: calling either a network failure invites a retry of something only
+ * the caller can fix.
+ */
+async function readRefusal(
+  response: Response,
+  url: string,
+  attempt: number,
+  maxRetries: number,
+): Promise<Refusal> {
+  if (PUSH_BACK.has(response.status)) {
+    await response.body?.cancel().catch(() => undefined);
+    const asked = parseRetryAfter(response.headers.get("retry-after"));
+
+    if (asked !== null && asked > LONGEST_WAIT_MS) {
+      return {
+        kind: "refused",
+        pushBack: true,
+        error: rateLimited(
+          `The Library of Congress asked this client to wait ${Math.round(asked / 1000)} seconds (HTTP ${response.status}).`,
+          { url, status: response.status },
+        ),
+      };
+    }
+    if (attempt >= maxRetries) {
+      return {
+        kind: "refused",
+        pushBack: true,
+        error: rateLimited(
+          `The Library of Congress asked this client to slow down (HTTP ${response.status}).`,
+          { url, status: response.status },
+        ),
+      };
+    }
+    return { kind: "again", pushBack: true, waitMs: asked ?? backoffMs(attempt) };
+  }
+
+  if (RETRYABLE.has(response.status) && attempt < maxRetries) {
+    await response.body?.cancel().catch(() => undefined);
+    return { kind: "again", pushBack: false, waitMs: backoffMs(attempt) };
+  }
+
+  if (response.status === 400 || response.status === 422) {
+    return {
+      kind: "refused",
+      pushBack: false,
+      error: invalidInput(
+        "The Library of Congress would not accept this request.",
+        "Check the query. A quotation mark or bracket left unbalanced is read as syntax.",
+      ),
+    };
+  }
+
+  if (response.status === 404 || response.status === 410) {
+    return {
+      kind: "refused",
+      pushBack: false,
+      error: notFound("The Library of Congress holds nothing at this address.", {
+        url,
+        status: response.status,
+      }),
+    };
+  }
+
+  return {
+    kind: "refused",
+    pushBack: false,
+    error: networkError(`The Library of Congress answered HTTP ${response.status}.`, {
+      url,
+      status: response.status,
+    }),
+  };
+}
+
+/**
  * Whether the site stands behind what it just sent, read off the lifetime it
  * gives the answer. An answer that states no lifetime is taken as settled,
  * since saying nothing is not a refusal.
  */
 export function statesASettledAnswer(cacheControl: string | null): boolean {
-  if (cacheControl === null) return true;
+  if (cacheControl === null) {
+    return true;
+  }
   const directives = cacheControl
     .toLowerCase()
     .split(",")
     .map((directive) => directive.trim());
-  if (directives.includes("no-cache") || directives.includes("no-store")) return false;
+  if (directives.includes("no-cache") || directives.includes("no-store")) {
+    return false;
+  }
   return !directives.some((directive) => /^(?:max-age|s-maxage)\s*=\s*0$/.test(directive));
 }
 
@@ -137,84 +265,19 @@ export async function fetchText(options: FetchOptions): Promise<Answer<string>> 
         return { payload: await response.text(), settled };
       }
 
-      if (PUSH_BACK.has(response.status)) {
+      const verdict = await readRefusal(response, url, attempt, maxRetries);
+      if (verdict.pushBack) {
         limiter.pushBack();
-        await response.body?.cancel().catch(() => undefined);
-        const asked = parseRetryAfter(response.headers.get("retry-after"));
-
-        if (asked !== null && asked > LONGEST_WAIT_MS) {
-          throw rateLimited(
-            `The Library of Congress asked this client to wait ${Math.round(asked / 1000)} seconds (HTTP ${response.status}).`,
-            { url, status: response.status },
-          );
-        }
-        if (attempt >= maxRetries) {
-          throw rateLimited(
-            `The Library of Congress asked this client to slow down (HTTP ${response.status}).`,
-            { url, status: response.status },
-          );
-        }
-        askedWaitMs = asked ?? backoffMs(attempt);
-        lastError = new Error(`HTTP ${response.status}`);
-        continue;
       }
-
-      if (RETRYABLE.has(response.status) && attempt < maxRetries) {
-        // An abandoned body keeps its socket out of the pool until it is
-        // consumed or cancelled.
-        await response.body?.cancel().catch(() => undefined);
-        lastError = new Error(`HTTP ${response.status}`);
-        askedWaitMs = backoffMs(attempt);
-        continue;
+      if (verdict.kind === "refused") {
+        throw verdict.error;
       }
-
-      // The request itself was refused: the site read it and would not run it.
-      // Calling that a network failure invites a retry of something only the
-      // caller can fix.
-      if (response.status === 400 || response.status === 422) {
-        throw invalidInput(
-          "The Library of Congress would not accept this request.",
-          "Check the query. A quotation mark or bracket left unbalanced is read as syntax.",
-        );
-      }
-
-      // The site answered, and answered that it holds nothing at this address.
-      // Calling that a network failure invites a retry of a settled question.
-      if (response.status === 404 || response.status === 410) {
-        throw notFound("The Library of Congress holds nothing at this address.", {
-          url,
-          status: response.status,
-        });
-      }
-
-      throw networkError(`The Library of Congress answered HTTP ${response.status}.`, {
-        url,
-        status: response.status,
-      });
+      askedWaitMs = verdict.waitMs;
+      lastError = new Error(`HTTP ${response.status}`);
     } catch (error) {
       clearTimeout(deadline);
 
-      // An error this module raised on purpose already says what happened.
-      if (error instanceof Error && error.name === "LocError") throw error;
-
-      if (error instanceof Error && error.name === "AbortError") {
-        lastError = error;
-        if (attempt >= Math.min(maxRetries, RETRIES_AFTER_SILENCE)) {
-          throw timeoutError(
-            `No answer from the Library of Congress within ${timeoutMs}ms. The newspaper corpus in particular can take tens of seconds.`,
-            { url },
-          );
-        }
-        askedWaitMs = backoffMs(attempt);
-        continue;
-      }
-
-      lastError = error instanceof Error ? error : new Error(String(error));
-      if (attempt >= maxRetries) {
-        throw networkError(`Could not reach the Library of Congress: ${lastError.message}`, {
-          url,
-        });
-      }
+      lastError = readFailure(error, { url, attempt, maxRetries, timeoutMs });
       askedWaitMs = backoffMs(attempt);
     } finally {
       clearTimeout(deadline);

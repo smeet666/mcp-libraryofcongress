@@ -69,7 +69,14 @@ describe("the pacing floor cannot be lowered", () => {
   });
 
   it("holds the floor against a value of the wrong shape", () => {
-    for (const claimed of [undefined, null, Number.NaN, "1", "fast", -Infinity] as unknown[]) {
+    for (const claimed of [
+      undefined,
+      null,
+      Number.NaN,
+      "1",
+      "fast",
+      Number.NEGATIVE_INFINITY,
+    ] as unknown[]) {
       const client = new LocClient({
         config: { minIntervalMs: claimed as number },
         logger: silent,

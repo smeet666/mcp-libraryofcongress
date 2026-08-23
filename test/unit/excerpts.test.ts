@@ -107,7 +107,7 @@ describe("excerpts", () => {
 describe("excerpts · a word rather than a run of letters", () => {
   const budget = { maxChars: 120, maxCount: 3 };
 
-  const swallowed: Array<[string, string]> = [
+  const swallowed: [string, string][] = [
     ["art", "men are just as particular as women about wrinkles"],
     ["art", "It does so impartially wasting no words"],
     ["art", "look over their old harness and see if new parts are needed"],
@@ -125,7 +125,7 @@ describe("excerpts · a word rather than a run of letters", () => {
     });
   }
 
-  const carried: Array<[string, string]> = [
+  const carried: [string, string][] = [
     ["art", "the new Person Hall Art Gallery opened on Friday"],
     ["art", "KEY WEST ART CENTERSponsored by the city"],
     ["art", "the fair, art, and the show"],

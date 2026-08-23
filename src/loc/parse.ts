@@ -33,9 +33,12 @@ const asObject = (value: unknown): Json | null =>
  * depending on how many the record carries. Both are read the same way.
  */
 function asStrings(value: unknown): string[] {
-  if (typeof value === "string") return value.trim() === "" ? [] : [value];
-  if (Array.isArray(value))
+  if (typeof value === "string") {
+    return value.trim() === "" ? [] : [value];
+  }
+  if (Array.isArray(value)) {
     return value.filter((v): v is string => typeof v === "string" && v.trim() !== "");
+  }
   return [];
 }
 
@@ -55,30 +58,42 @@ function asLabels(value: unknown): string[] {
   const labels: string[] = [];
   for (const entry of entries) {
     if (typeof entry === "string") {
-      if (entry.trim() !== "") labels.push(entry);
+      if (entry.trim() !== "") {
+        labels.push(entry);
+      }
       continue;
     }
     const object = asObject(entry);
-    if (!object) continue;
+    if (!object) {
+      continue;
+    }
     const titled = asString(object.title);
     if (titled !== null) {
       labels.push(titled);
       continue;
     }
     for (const key of Object.keys(object)) {
-      if (key.trim() !== "") labels.push(key);
+      if (key.trim() !== "") {
+        labels.push(key);
+      }
     }
   }
   return labels;
 }
 
 function asNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
   if (typeof value === "string" && value.trim() !== "") {
     const n = Number(value);
-    if (Number.isFinite(n)) return n;
+    if (Number.isFinite(n)) {
+      return n;
+    }
   }
-  if (Array.isArray(value)) return asNumber(value[0]);
+  if (Array.isArray(value)) {
+    return asNumber(value[0]);
+  }
   return null;
 }
 
@@ -89,9 +104,13 @@ function asNumber(value: unknown): number | null {
  */
 function asPageNumber(value: unknown): number | null {
   const text = asString(value);
-  if (text === null) return null;
+  if (text === null) {
+    return null;
+  }
   const digits = text.trim();
-  if (!/^\d+$/.test(digits)) return null;
+  if (!/^\d+$/.test(digits)) {
+    return null;
+  }
   const n = Number(digits);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
@@ -113,7 +132,9 @@ export function asYear(value: unknown): number | null {
   const text = asString(value);
   if (text !== null) {
     const m = /(\d{4})/.exec(text);
-    if (m) return plausible(Number(m[1]));
+    if (m) {
+      return plausible(Number(m[1]));
+    }
   }
 
   const direct = asNumber(value);
@@ -211,10 +232,14 @@ export function monthsNamed(text: string, filedYear: string): Set<number> {
   for (const match of text.matchAll(MONTH_BESIDE_A_NUMBER)) {
     const word = (match[2] ?? match[3] ?? "").toLowerCase();
     const month = MONTH_NUMBER[word];
-    if (month !== undefined) months.add(month);
+    if (month !== undefined) {
+      months.add(month);
+    }
   }
   for (const match of text.matchAll(YEAR_AND_TWO_DIGITS)) {
-    if (match[1] === filedYear) months.add(Number(match[2]));
+    if (match[1] === filedYear) {
+      months.add(Number(match[2]));
+    }
   }
   for (const match of text.matchAll(SLASHED_DATE)) {
     months.add(Number(match[1]));
@@ -251,17 +276,25 @@ export function statedDate(item: Json): string | null {
   const words = asStrings(item[ITEM_FIELD.createdPublished])
     .map(plainText)
     .filter((line) => line !== "");
-  if (words.length > 0) return words.join("; ");
+  if (words.length > 0) {
+    return words.join("; ");
+  }
   const spans = asLabels(item[ITEM_FIELD.dateSpans]);
   return spans.length > 0 ? spans.join("; ") : null;
 }
 
 export function datePublished(filed: string | null, stated: string | null): string | null {
-  if (filed === null) return null;
+  if (filed === null) {
+    return null;
+  }
   const trimmed = filed.trim();
-  if (trimmed === "" || isCataloguingCode(trimmed)) return null;
+  if (trimmed === "" || isCataloguingCode(trimmed)) {
+    return null;
+  }
   const filled = FILED_TO_THE_DAY.exec(trimmed) ?? FILED_TO_THE_MONTH.exec(trimmed);
-  if (filled === null || stated === null) return trimmed;
+  if (filled === null || stated === null) {
+    return trimmed;
+  }
 
   const year = filled[1] as string;
   const month = Number(filled[2]);
@@ -270,7 +303,9 @@ export function datePublished(filed: string | null, stated: string | null): stri
 
 /** The code the Library files a record under in place of a date, or null. */
 export function dateCode(filed: string | null): string | null {
-  if (filed === null) return null;
+  if (filed === null) {
+    return null;
+  }
   const trimmed = filed.trim();
   return isCataloguingCode(trimmed) ? trimmed : null;
 }
@@ -349,9 +384,15 @@ function sourceUrlOf(row: Json, identifier: string | null): string {
   const raw = asString(row[ROW_FIELD.url]) ?? asString(row[ROW_FIELD.id]);
   if (raw) {
     const trimmed = raw.trim();
-    if (trimmed.startsWith("//")) return `https:${trimmed}`;
-    if (trimmed.startsWith("http://")) return `https://${trimmed.slice("http://".length)}`;
-    if (trimmed.startsWith("https://")) return trimmed;
+    if (trimmed.startsWith("//")) {
+      return `https:${trimmed}`;
+    }
+    if (trimmed.startsWith("http://")) {
+      return `https://${trimmed.slice("http://".length)}`;
+    }
+    if (trimmed.startsWith("https://")) {
+      return trimmed;
+    }
   }
   return identifier === null ? "" : itemUrl(identifier);
 }
@@ -419,7 +460,9 @@ export function toSearchResults(
     });
   }
 
-  if (skipped > 0) onSkip(skipped);
+  if (skipped > 0) {
+    onSkip(skipped);
+  }
   if (rows.length > 0 && records.length === 0) {
     throw parseFailure(`${rows.length} rows came back and none could be read.`, { url });
   }
@@ -465,13 +508,17 @@ export function queryTerms(query: string): string[] {
   const phrases = query.match(/"([^"]+)"/g) ?? [];
   for (const phrase of phrases) {
     const inner = phrase.slice(1, -1).trim().toLowerCase();
-    if (inner !== "") terms.push(inner);
+    if (inner !== "") {
+      terms.push(inner);
+    }
   }
 
   const rest = query.replace(/"[^"]*"/g, " ");
   for (const word of rest.split(/[^\p{L}\p{N}'-]+/u)) {
     const lower = word.trim().toLowerCase();
-    if (lower.length < 3 || JOINING_WORDS.has(lower)) continue;
+    if (lower.length < 3 || JOINING_WORDS.has(lower)) {
+      continue;
+    }
     terms.push(lower);
   }
 
@@ -515,7 +562,9 @@ function toWordBoundary(text: string, index: number, direction: -1 | 1): number 
   const limit = direction === -1 ? 0 : text.length;
   let at = index;
   for (let step = 0; step < 30 && at !== limit; step += 1) {
-    if (text[at] === " ") return at;
+    if (text[at] === " ") {
+      return at;
+    }
     at += direction;
   }
   return index;
@@ -532,7 +581,9 @@ function toWordBoundary(text: string, index: number, direction: -1 | 1): number 
  */
 export function excerptsFor(text: string, terms: string[], budget: ExcerptBudget): Excerpts {
   const clean = text.replace(/\s+/g, " ").trim();
-  if (clean === "") return { passages: [], located: false };
+  if (clean === "") {
+    return { passages: [], located: false };
+  }
 
   const found: Array<{ at: number; length: number }> = [];
   for (const term of terms) {
@@ -541,7 +592,9 @@ export function excerptsFor(text: string, terms: string[], budget: ExcerptBudget
     while (match !== null) {
       found.push({ at: match.index, length: match[0].length });
       // A term that can match nothing would otherwise hold the cursor still.
-      if (match[0].length === 0) pattern.lastIndex += 1;
+      if (match[0].length === 0) {
+        pattern.lastIndex += 1;
+      }
       match = pattern.exec(clean);
     }
   }
@@ -561,7 +614,7 @@ export function excerptsFor(text: string, terms: string[], budget: ExcerptBudget
     const half = Math.max(0, Math.floor((budget.maxChars - hit.length) / 2));
     const start = toWordBoundary(clean, Math.max(0, hit.at - half), -1);
     const end = toWordBoundary(clean, Math.min(clean.length, hit.at + hit.length + half), 1);
-    const previous = windows[windows.length - 1];
+    const previous = windows.at(-1);
     if (previous && start <= previous.end) {
       // Two matches close together belong in one passage rather than in two
       // that repeat most of the same words.
@@ -626,7 +679,9 @@ export function toNewspaperResults(
     });
   }
 
-  if (skipped > 0) onSkip(skipped);
+  if (skipped > 0) {
+    onSkip(skipped);
+  }
   if (rows.length > 0 && hits.length === 0) {
     throw parseFailure(`${rows.length} matches came back and none could be read.`, { url });
   }
@@ -634,11 +689,15 @@ export function toNewspaperResults(
 }
 
 function toResources(value: unknown): ItemResource[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
   const resources: ItemResource[] = [];
   for (const entry of value) {
     const resource = asObject(entry);
-    if (!resource) continue;
+    if (!resource) {
+      continue;
+    }
     const files = resource.files;
     const fileCount = Array.isArray(files)
       ? files.reduce<number>((sum, group) => sum + (Array.isArray(group) ? group.length : 1), 0)
@@ -655,10 +714,14 @@ function toResources(value: unknown): ItemResource[] {
 
 function toCitations(value: unknown): Record<string, string> {
   const block = asObject(value);
-  if (!block) return {};
+  if (!block) {
+    return {};
+  }
   const citations: Record<string, string> = {};
   for (const [style, text] of Object.entries(block)) {
-    if (typeof text !== "string" || text.trim() === "") continue;
+    if (typeof text !== "string" || text.trim() === "") {
+      continue;
+    }
     citations[style] = plainText(text);
   }
   return citations;
@@ -666,7 +729,9 @@ function toCitations(value: unknown): Record<string, string> {
 
 export function toItemDetail(payload: unknown, identifier: string, url: string): ItemDetail {
   const root = asObject(payload);
-  if (!root) throw parseFailure("The item answer was not an object.", { url });
+  if (!root) {
+    throw parseFailure("The item answer was not an object.", { url });
+  }
 
   // The site states a missing record in the body as well as in the status, and
   // a body saying so has to be read the same way.
@@ -757,7 +822,9 @@ export function toCollections(
     });
   }
 
-  if (skipped > 0) onSkip(skipped);
+  if (skipped > 0) {
+    onSkip(skipped);
+  }
   if (rows.length > 0 && collections.length === 0) {
     throw parseFailure(`${rows.length} collections came back and none could be read.`, { url });
   }

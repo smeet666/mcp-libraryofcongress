@@ -56,7 +56,7 @@ describe("reading a Retry-After header", () => {
 
 describe("one request", () => {
   it("names this server and a contact address to the site", async () => {
-    const calls: Array<Parameters<typeof fetch>[1]> = [];
+    const calls: Parameters<typeof fetch>[1][] = [];
     const fetchImpl = (async (_url: string, init: Parameters<typeof fetch>[1]) => {
       calls.push(init);
       return jsonResponse({ ok: true });

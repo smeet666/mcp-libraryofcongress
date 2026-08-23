@@ -20,7 +20,95 @@ import type { SearchResults } from "../types.js";
 import { strictInput } from "./arguments.js";
 import { agrees, counted, ok, recordSchema, renderRecords, toToolError } from "./shared.js";
 import type { ToolResult } from "./shared.js";
+/**
+ * What the search reached, and what its shape does not say.
+ *
+ * The Library keeps a separate catalogue per kind of thing, so a search that
+ * found nothing has looked in one of them and says nothing about the others. A
+ * row can be a record or one of those corpora, and a page past the last one is
+ * not an empty catalogue.
+ */
+function notesOnWhatTheSearchReached(
+  data: SearchResults,
+  args: SearchItemsArgs,
+  items: ReadonlyArray<{
+    is_collection: boolean;
+    identifier: string | null;
+    date_code: string | null;
+  }>,
+  total: number,
+  narrowing: { setAside: boolean; without: string },
+): string[] {
+  const notes: string[] = [];
+
+  if (total > items.length) {
+    notes.push(
+      narrowing.setAside
+        ? `${counted(total, "record")} match the search${narrowing.without}, and ${items.length} ${agrees(items.length, "is", "are")} shown.`
+        : `${counted(total, "record")} match and ${items.length} ${agrees(items.length, "is", "are")} shown.`,
+    );
+  }
+
+  const gathered = items.filter((item) => item.is_collection).length;
+  if (gathered > 0) {
+    notes.push(
+      `${gathered} of the ${counted(items.length, "row")} shown ${agrees(gathered, "is a collection", "are collections")} the Library gathered and named rather than ${agrees(gathered, "a record", "records")} of the ${args.media_type} catalogue: 'identifier' is null there, get_item has nothing to take, and 'source_url' opens the collection. The count beside the rows is the catalogue's own, and it counts them in.`,
+    );
+  }
+
+  const anonymous = items.filter((item) => item.identifier === null && !item.is_collection).length;
+  if (anonymous > 0) {
+    notes.push(
+      `${counted(anonymous, "row")} shown ${agrees(anonymous, "names", "name")} an address that is not a record: 'identifier' is null there and get_item has nothing to take, so ${agrees(anonymous, "read it at its", "read them at their")} 'source_url'.`,
+    );
+  }
+
+  const coded = items.filter((item) => item.date_code !== null);
+  if (coded.length > 0) {
+    const codes = [...new Set(coded.map((item) => item.date_code))].join(", ");
+    notes.push(
+      `${counted(coded.length, "row")} shown ${agrees(coded.length, "carries", "carry")} no date: the Library files ${agrees(coded.length, "it", "them")} under a cataloguing code standing for digits it has not established, so 'date' and 'year' are null there while 'date_code' holds the code it filed ${agrees(coded.length, "it", "them")} under: ${codes}.`,
+    );
+  }
+  if (total === 0) {
+    notes.push(
+      `Nothing in the ${args.media_type} catalogue matches. A search here reads titles and catalogue descriptions only, so a phrase printed inside a newspaper belongs in search_newspapers.`,
+    );
+  }
+  if (items.length === 0 && total > 0) {
+    const pages = data.paging.pageCount;
+    notes.push(
+      `Page ${args.page} is past the last row. ${counted(total, "record")} match${pages === null ? "" : ` across ${counted(pages, "page")} at this page size`}, so ask for a lower page.`,
+    );
+  }
+  if (!narrowing.setAside && (args.year_from !== undefined || args.year_to !== undefined)) {
+    notes.push(
+      "A record spanning several years matches on any of them, so a row can carry a date outside the range asked for while still belonging to it.",
+    );
+  }
+  if (!args.online_only && items.length > 0) {
+    notes.push(
+      "This search took in records with no digitised copy. Read 'online' on a row before promising something can be read from a browser.",
+    );
+  }
+
+  return notes;
+}
+
 import { LocError, invalidInput } from "../errors.js";
+
+/**
+ * Why a page of records came back empty.
+ *
+ * A page past the last one and a catalogue holding nothing are different
+ * statements about the Library, and a caller acts on them differently.
+ */
+function nothingOnThisPage(total: number, page: number, mediaType: string, query: string): string {
+  if (total > 0) {
+    return `Page ${page} is past the last of ${counted(total, "record")} the ${mediaType} catalogue holds for "${query}".`;
+  }
+  return `Nothing in the ${mediaType} catalogue for "${query}".`;
+}
 
 export const searchItemsDescription = [
   "Search the Library of Congress catalogue: books, photographs, maps, recordings, films, manuscripts, sheet music and newspaper titles.",
@@ -89,10 +177,18 @@ export type SearchItemsArgs = z.infer<typeof searchItemsInput>;
 /** The optional narrowing, named as a caller wrote it, for the note. */
 function describeNarrowing(args: SearchItemsArgs): string[] {
   const written: string[] = [];
-  if (args.subject) written.push(`subject="${args.subject}"`);
-  if (args.location) written.push(`location="${args.location}"`);
-  if (args.language) written.push(`language="${args.language}"`);
-  if (args.collection) written.push(`collection="${args.collection}"`);
+  if (args.subject) {
+    written.push(`subject="${args.subject}"`);
+  }
+  if (args.location) {
+    written.push(`location="${args.location}"`);
+  }
+  if (args.language) {
+    written.push(`language="${args.language}"`);
+  }
+  if (args.collection) {
+    written.push(`collection="${args.collection}"`);
+  }
   if (args.year_from !== undefined || args.year_to !== undefined) {
     written.push(`years ${args.year_from ?? "any"} to ${args.year_to ?? "any"}`);
   }
@@ -108,9 +204,15 @@ function describeNarrowing(args: SearchItemsArgs): string[] {
  */
 function whereTheWordingIs(args: SearchItemsArgs): string[] {
   const advice: string[] = [];
-  if (args.subject) advice.push("a subject is spelled as 'subjects' spells it on a row");
-  if (args.location) advice.push("a place is spelled as 'location' spells it on a row");
-  if (args.language) advice.push('a language is written in English, as in "english"');
+  if (args.subject) {
+    advice.push("a subject is spelled as 'subjects' spells it on a row");
+  }
+  if (args.location) {
+    advice.push("a place is spelled as 'location' spells it on a row");
+  }
+  if (args.language) {
+    advice.push('a language is written in English, as in "english"');
+  }
   if (args.collection) {
     advice.push("a collection is spelled as list_collections reports it under 'collection_filter'");
   }
@@ -156,7 +258,9 @@ async function askCatalogue(
   try {
     return await client.searchItems(query);
   } catch (error) {
-    if (!(error instanceof LocError) || error.code !== "not_found" || page <= 1) throw error;
+    if (!(error instanceof LocError) || error.code !== "not_found" || page <= 1) {
+      throw error;
+    }
     const first = await client.searchItems({ ...query, page: 1 });
     return { data: { paging: first.data.paging, records: [] }, cached: first.cached };
   }
@@ -191,7 +295,9 @@ export async function runSearchItems(
 
     const facets: Facets = {};
     const put = (field: FacetField, value: string | undefined) => {
-      if (value && value.trim() !== "") facets[field] = value;
+      if (value && value.trim() !== "") {
+        facets[field] = value;
+      }
     };
     put("subject", args.subject);
     put("location", args.location);
@@ -210,8 +316,8 @@ export async function runSearchItems(
     const narrowed = {
       ...wide,
       facets,
-      ...(args.year_from !== undefined ? { yearFrom: args.year_from } : {}),
-      ...(args.year_to !== undefined ? { yearTo: args.year_to } : {}),
+      ...(args.year_from === undefined ? {} : { yearFrom: args.year_from }),
+      ...(args.year_to === undefined ? {} : { yearTo: args.year_to }),
     };
 
     const notes: string[] = [];
@@ -235,7 +341,9 @@ export async function runSearchItems(
     }
 
     const { data, cached, skipped } = result;
-    if (cached) notes.push("Served from this server's short-lived in-memory cache.");
+    if (cached) {
+      notes.push("Served from this server's short-lived in-memory cache.");
+    }
     if (skipped) {
       notes.push(
         `${counted(skipped, "row")} came back in a shape this server could not read and ${agrees(skipped, "was", "were")} left out.`,
@@ -261,64 +369,16 @@ export async function runSearchItems(
     // Every sentence carrying the count names the search it counts, so the
     // number cannot be read back as the count for the filters that were sent.
     const withoutNarrowing = narrowingSetAside ? ` without ${narrowing.join(", ")}` : "";
-    if (total > items.length) {
-      notes.push(
-        narrowingSetAside
-          ? `${counted(total, "record")} match the search${withoutNarrowing}, and ${items.length} ${agrees(items.length, "is", "are")} shown.`
-          : `${counted(total, "record")} match and ${items.length} ${agrees(items.length, "is", "are")} shown.`,
-      );
-    }
-
-    const gathered = items.filter((item) => item.is_collection).length;
-    if (gathered > 0) {
-      notes.push(
-        `${gathered} of the ${counted(items.length, "row")} shown ${agrees(gathered, "is a collection", "are collections")} the Library gathered and named rather than ${agrees(gathered, "a record", "records")} of the ${args.media_type} catalogue: 'identifier' is null there, get_item has nothing to take, and 'source_url' opens the collection. The count beside the rows is the catalogue's own, and it counts them in.`,
-      );
-    }
-
-    const anonymous = items.filter(
-      (item) => item.identifier === null && !item.is_collection,
-    ).length;
-    if (anonymous > 0) {
-      notes.push(
-        `${counted(anonymous, "row")} shown ${agrees(anonymous, "names", "name")} an address that is not a record: 'identifier' is null there and get_item has nothing to take, so ${agrees(anonymous, "read it at its", "read them at their")} 'source_url'.`,
-      );
-    }
-
-    const coded = items.filter((item) => item.date_code !== null);
-    if (coded.length > 0) {
-      const codes = [...new Set(coded.map((item) => item.date_code))].join(", ");
-      notes.push(
-        `${counted(coded.length, "row")} shown ${agrees(coded.length, "carries", "carry")} no date: the Library files ${agrees(coded.length, "it", "them")} under a cataloguing code standing for digits it has not established, so 'date' and 'year' are null there while 'date_code' holds the code it filed ${agrees(coded.length, "it", "them")} under: ${codes}.`,
-      );
-    }
-    if (total === 0) {
-      notes.push(
-        `Nothing in the ${args.media_type} catalogue matches. A search here reads titles and catalogue descriptions only, so a phrase printed inside a newspaper belongs in search_newspapers.`,
-      );
-    }
-    if (items.length === 0 && total > 0) {
-      const pages = data.paging.pageCount;
-      notes.push(
-        `Page ${args.page} is past the last row. ${counted(total, "record")} match${pages === null ? "" : ` across ${counted(pages, "page")} at this page size`}, so ask for a lower page.`,
-      );
-    }
-    if (!narrowingSetAside && (args.year_from !== undefined || args.year_to !== undefined)) {
-      notes.push(
-        "A record spanning several years matches on any of them, so a row can carry a date outside the range asked for while still belonging to it.",
-      );
-    }
-    if (!args.online_only && items.length > 0) {
-      notes.push(
-        "This search took in records with no digitised copy. Read 'online' on a row before promising something can be read from a browser.",
-      );
-    }
+    notes.push(
+      ...notesOnWhatTheSearchReached(data, args, items, total, {
+        setAside: narrowingSetAside,
+        without: withoutNarrowing,
+      }),
+    );
 
     const body =
       items.length === 0
-        ? total > 0
-          ? `Page ${args.page} is past the last of ${counted(total, "record")} the ${args.media_type} catalogue holds for "${args.query}".`
-          : `Nothing in the ${args.media_type} catalogue for "${args.query}".`
+        ? nothingOnThisPage(total, args.page, args.media_type, args.query)
         : `${items.length} of ${counted(total, "record")} for "${args.query}"${withoutNarrowing}:\n${renderRecords(items)}`;
 
     return ok({ query: args.query, total, page: args.page, items, notes }, body, { notes });

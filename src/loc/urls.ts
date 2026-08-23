@@ -83,14 +83,20 @@ export function catalogueUrl(q: CatalogueQuery): string {
   }
 
   const facets = facetString(q.facets ?? {});
-  if (facets !== "") url.searchParams.set(PARAM.facets, facets);
+  if (facets !== "") {
+    url.searchParams.set(PARAM.facets, facets);
+  }
 
   const sort = q.sort ? SORT[q.sort] : "";
-  if (sort !== "") url.searchParams.set(PARAM.sort, sort);
+  if (sort !== "") {
+    url.searchParams.set(PARAM.sort, sort);
+  }
 
   // The format routes answer with digitised material by default. Widening is
   // what takes the search into records the Library holds on a shelf alone.
-  if (!q.onlineOnly) url.searchParams.set(PARAM.all, "true");
+  if (!q.onlineOnly) {
+    url.searchParams.set(PARAM.all, "true");
+  }
 
   return url.toString();
 }
@@ -125,7 +131,9 @@ export function newspaperPagesUrl(
   }
 
   const facets = facetString(filters.facets ?? {});
-  if (facets !== "") url.searchParams.set(PARAM.facets, facets);
+  if (facets !== "") {
+    url.searchParams.set(PARAM.facets, facets);
+  }
 
   return url.toString();
 }
@@ -182,9 +190,13 @@ export function itemDocumentUrl(identifier: string): string {
 
 /** The path segments of an address the site published, or null. */
 function segmentsOf(address: string | null): { host: string; segments: string[] } | null {
-  if (!address) return null;
+  if (!address) {
+    return null;
+  }
   const trimmed = address.trim();
-  if (trimmed === "") return null;
+  if (trimmed === "") {
+    return null;
+  }
 
   // Rows carry protocol-relative addresses as often as absolute ones.
   const absolute = trimmed.startsWith("//") ? `https:${trimmed}` : trimmed;
@@ -196,7 +208,9 @@ function segmentsOf(address: string | null): { host: string; segments: string[] 
   }
 
   const path = parsed.pathname.replace(/^\/+|\/+$/g, "");
-  if (path === "") return null;
+  if (path === "") {
+    return null;
+  }
   return { host: parsed.hostname, segments: path.split("/") };
 }
 
@@ -213,10 +227,14 @@ function segmentsOf(address: string | null): { host: string; segments: string[] 
  */
 export function identifierFrom(address: string | null): string | null {
   const parsed = segmentsOf(address);
-  if (!parsed) return null;
+  if (!parsed) {
+    return null;
+  }
   const { host, segments } = parsed;
 
-  if (host === "lccn.loc.gov") return segments[0] ?? null;
+  if (host === "lccn.loc.gov") {
+    return segments[0] ?? null;
+  }
 
   const first = segments[0];
   if (first === "item" || first === "resource") {
@@ -234,6 +252,8 @@ export function identifierFrom(address: string | null): string | null {
  */
 export function collectionSlugFrom(address: string | null): string | null {
   const parsed = segmentsOf(address);
-  if (!parsed) return null;
+  if (!parsed) {
+    return null;
+  }
   return parsed.segments[0] === "collections" ? (parsed.segments[1] ?? null) : null;
 }

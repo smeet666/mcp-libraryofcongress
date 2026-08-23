@@ -30,7 +30,7 @@ import {
 } from "./spec.support.js";
 
 /** One valid call per tool, so a refusal is never mistaken for a broken tool. */
-const CALLS: Array<[string, Record<string, unknown>]> = [
+const CALLS: [string, Record<string, unknown>][] = [
   ["search_newspapers", { query: "lamps" }],
   ["search_items", { query: "orchard", media_type: "books" }],
   ["get_item", { identifier: "glass-orchard-1971" }],
@@ -45,8 +45,12 @@ async function connect(): Promise<Client> {
     if (url.includes("chronicling-america")) {
       return jsonResponse(newspapersPayload([newspaperRow()]));
     }
-    if (url.includes("/collections/")) return jsonResponse(collectionsPayload([COLLECTION_ROW]));
-    if (url.includes("/item/")) return jsonResponse(itemPayload());
+    if (url.includes("/collections/")) {
+      return jsonResponse(collectionsPayload([COLLECTION_ROW]));
+    }
+    if (url.includes("/item/")) {
+      return jsonResponse(itemPayload());
+    }
     return jsonResponse(cataloguePayload([CATALOGUE_ROW]));
   }) as unknown as typeof fetch;
 
@@ -75,7 +79,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  for (const harness of open) await harness.close();
+  for (const harness of open) {
+    await harness.close();
+  }
   open.clear();
   vi.useRealTimers();
 });

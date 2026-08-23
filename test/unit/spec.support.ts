@@ -48,14 +48,14 @@ export function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 export interface Recorder {
   fetchImpl: typeof fetch;
   urls: string[];
-  headers: Array<Record<string, string>>;
+  headers: Record<string, string>[];
   at: number[];
 }
 
 /** A fetch answering every address with the same payload, recording the calls. */
 export function recordingFetch(reply: () => Response | Promise<Response>): Recorder {
   const urls: string[] = [];
-  const headers: Array<Record<string, string>> = [];
+  const headers: Record<string, string>[] = [];
   const at: number[] = [];
   const fetchImpl = (async (
     input: Parameters<typeof fetch>[0],
@@ -78,7 +78,9 @@ export function scripted(steps: Array<() => Response | Promise<Response>>): Reco
   const base = recordingFetch(() => {
     const step = steps[Math.min(index, steps.length - 1)];
     index += 1;
-    if (!step) throw new Error("scripted ran out of steps");
+    if (!step) {
+      throw new Error("scripted ran out of steps");
+    }
     return step();
   });
   return { ...base, count: () => index };
@@ -235,7 +237,9 @@ export function structured<T = Record<string, unknown>>(result: ToolShape): T {
 
 /** The error code an errored tool result reports, or null when it is not one. */
 export function errorCode(result: ToolShape): string | null {
-  if (!result.isError) return null;
+  if (!result.isError) {
+    return null;
+  }
   const match = /^\[([a-z_]+)]/.exec(textOf(result));
   return match ? (match[1] as string) : null;
 }
