@@ -24,6 +24,23 @@ import { LocError } from "../errors.js";
  * rather than letting a caller discover it by arriving at the end of what they
  * can ask for.
  */
+/**
+ * Why a page of collections came back empty.
+ *
+ * Three silences, and they say different things: the page held collections and
+ * none of them names a media type, the page is past the last one, or the
+ * Library publishes none at all.
+ */
+function nothingOnThisPage(read: number, total: number, page: number): string {
+  if (read > 0) {
+    return `None of the ${counted(read, "collection")} on page ${page} publishes a format naming a media_type.`;
+  }
+  if (total > 0) {
+    return `Page ${page} is past the last of ${counted(total, "collection")}.`;
+  }
+  return "The Library published no collection here.";
+}
+
 export const MAX_COLLECTION_PAGE = 100;
 
 export const listCollectionsDescription = [
@@ -200,11 +217,7 @@ export async function runListCollections(
 
     const body =
       collections.length === 0
-        ? read.length > 0
-          ? `None of the ${counted(read.length, "collection")} on page ${args.page} publishes a format naming a media_type.`
-          : total > 0
-            ? `Page ${args.page} is past the last of ${counted(total, "collection")}.`
-            : "The Library published no collection here."
+        ? nothingOnThisPage(read.length, total, args.page)
         : `${collections.length} of ${counted(total, "collection")}:\n` +
           collections
             .map((collection, index) => {

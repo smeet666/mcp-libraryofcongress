@@ -34,6 +34,19 @@ import { OCR_CAVEAT, agrees, counted, ok, toToolError, truncate } from "./shared
 import type { ToolResult } from "./shared.js";
 import { invalidInput } from "../errors.js";
 
+/**
+ * Why a page of newspaper matches came back empty.
+ *
+ * A page past the last one and a corpus matching nothing are different
+ * statements about what the Library has digitised.
+ */
+function nothingOnThisPage(total: number, page: number, query: string): string {
+  if (total > 0) {
+    return `Page ${page} is past the last of ${counted(total, "newspaper page")} the Library matched for ${query}.`;
+  }
+  return `Nothing found in the scanned newspapers for ${query}.`;
+}
+
 export const searchNewspapersDescription = [
   "Search the text inside digitised American newspaper pages held by the Library of Congress.",
   "This reads what optical recognition took off the scanned pages, so it finds a phrase that appears nowhere in a title or a catalogue record.",
@@ -273,9 +286,7 @@ export async function runSearchNewspapers(
 
     const body =
       hits.length === 0
-        ? total > 0
-          ? `Page ${args.page} is past the last of ${counted(total, "newspaper page")} the Library matched for ${args.query}.`
-          : `Nothing found in the scanned newspapers for ${args.query}.`
+        ? nothingOnThisPage(total, args.page, args.query)
         : `${hits.length} of ${counted(total, "newspaper page")} the Library matched for ${args.query}:\n` +
           hits
             .map((hit, index) => {

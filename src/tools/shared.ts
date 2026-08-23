@@ -8,6 +8,23 @@ import { LocError } from "../errors.js";
  * it has to answer on its own. This ceiling is what keeps a search of a corpus
  * of millions from arriving as a wall of scanned text.
  */
+/**
+ * What a row says about the identifier it carries, or the one it has none of.
+ *
+ * A collection carries no identifier because the item route holds nothing at
+ * its address, which is a different absence from a record whose id went
+ * unprinted.
+ */
+function identifierLine(record: { identifier?: string | null; is_collection?: boolean }): string {
+  if (record.identifier) {
+    return `· id: ${record.identifier}`;
+  }
+  if (record.is_collection) {
+    return "· a collection, no identifier";
+  }
+  return "· no identifier";
+}
+
 export const MAX_TEXT_CHARS = 2200;
 
 export const ATTRIBUTION = "Source: Library of Congress";
@@ -181,11 +198,7 @@ export function renderRecords(records: z.infer<typeof recordSchema>[]): string {
         // An identifier a row does not carry is stated rather than left out: a
         // line with nothing where the others carry an id reads as a line whose
         // id went unprinted.
-        record.identifier
-          ? `· id: ${record.identifier}`
-          : record.is_collection
-            ? "· a collection, no identifier"
-            : "· no identifier",
+        identifierLine(record),
       ];
       // The address goes on its own line: a client that renders only text has
       // nothing else to cite from, and a model with an identifier and no link

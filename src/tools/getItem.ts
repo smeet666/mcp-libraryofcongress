@@ -12,6 +12,74 @@ import type { LocClient } from "../loc/client.js";
 import { strictInput } from "./arguments.js";
 import { RIGHTS_CAVEAT, ok, sliceAtLineBoundary, toToolError } from "./shared.js";
 import type { ToolResult } from "./shared.js";
+import type { ItemDetail } from "../types.js";
+
+/**
+ * Put the sections a caller asked for into the payload, and say what is empty.
+ *
+ * A section left out carries no key at all: an empty list is a statement that
+ * the Library holds none, and only a section that was asked for can make it.
+ */
+function attachAskedSections(
+  structured: Record<string, unknown>,
+  data: ItemDetail,
+  wanted: Set<string>,
+  notes: string[],
+): void {
+  if (wanted.has("citations")) {
+    structured.citations = data.citations;
+    if (Object.keys(data.citations).length === 0) {
+      notes.push("The Library publishes no ready-made citation for this record.");
+    }
+  }
+  if (wanted.has("resources")) {
+    structured.resources = data.resources.map((resource) => ({
+      caption: resource.caption,
+      file_count: resource.fileCount,
+      url: resource.url,
+      image_url: resource.imageUrl,
+    }));
+    if (data.resources.length === 0) {
+      notes.push("The Library serves no copy of this record online.");
+    }
+  }
+  if (wanted.has("full_metadata")) {
+    structured.full_metadata = data.raw ?? {};
+  }
+
+  // A record covering a span is filed under the first year of that span, so
+  // the date beside it is where the catalogue sorts the record rather than
+  // when the thing itself was made.
+}
+
+/**
+ * What the Library's own way of writing a record says about it.
+ *
+ * A date that opens a span, a date written as a code the catalogue publishes no
+ * label for, a record stating no terms of use: each is something a reader takes
+ * for more than it is unless the answer says otherwise.
+ */
+function notesOnWhatTheRecordStates(data: ItemDetail): string[] {
+  const notes: string[] = [];
+
+  if (data.dateIsSpanOpening) {
+    notes.push(
+      `The record states its date as "${data.dateStated}". ${data.date} is the opening of that span and where the Library files the record, and 'year' reads the same value, so neither is a date the record carries.`,
+    );
+  }
+
+  if (data.dateCode !== null) {
+    notes.push(
+      `The Library files this record under "${data.dateCode}", a cataloguing code standing for digits it has not established rather than a date, so 'date' and 'year' are null. 'date_stated' repeats what the record itself says about when it was made.`,
+    );
+  }
+
+  if (!data.rights) {
+    notes.push(RIGHTS_CAVEAT);
+  }
+
+  return notes;
+}
 
 const SECTIONS = ["basic", "citations", "resources", "full_metadata"] as const;
 
@@ -177,45 +245,9 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
       notes,
     };
 
-    if (wanted.has("citations")) {
-      structured.citations = data.citations;
-      if (Object.keys(data.citations).length === 0) {
-        notes.push("The Library publishes no ready-made citation for this record.");
-      }
-    }
-    if (wanted.has("resources")) {
-      structured.resources = data.resources.map((resource) => ({
-        caption: resource.caption,
-        file_count: resource.fileCount,
-        url: resource.url,
-        image_url: resource.imageUrl,
-      }));
-      if (data.resources.length === 0) {
-        notes.push("The Library serves no copy of this record online.");
-      }
-    }
-    if (wanted.has("full_metadata")) {
-      structured.full_metadata = data.raw ?? {};
-    }
+    attachAskedSections(structured, data, wanted, notes);
 
-    // A record covering a span is filed under the first year of that span, so
-    // the date beside it is where the catalogue sorts the record rather than
-    // when the thing itself was made.
-    if (data.dateIsSpanOpening) {
-      notes.push(
-        `The record states its date as "${data.dateStated}". ${data.date} is the opening of that span and where the Library files the record, and 'year' reads the same value, so neither is a date the record carries.`,
-      );
-    }
-
-    if (data.dateCode !== null) {
-      notes.push(
-        `The Library files this record under "${data.dateCode}", a cataloguing code standing for digits it has not established rather than a date, so 'date' and 'year' are null. 'date_stated' repeats what the record itself says about when it was made.`,
-      );
-    }
-
-    if (!data.rights) {
-      notes.push(RIGHTS_CAVEAT);
-    }
+    notes.push(...notesOnWhatTheRecordStates(data));
 
     const lines = [
       [data.title ?? data.identifier, data.date ? `(${data.date})` : ""].filter(Boolean).join(" "),
