@@ -170,7 +170,7 @@ export class LocClient {
       key,
       url,
       (payload, onSkip, settled) =>
-        toNewspaperResults(payload, url, trimmed, budget, onSkip, settled),
+        toNewspaperResults(payload, url, trimmed, { budget, onSkip, settled }),
       // Reading the text of millions of pages takes the site far longer than
       // answering from the catalogue, so this route carries a budget of its own.
       this.config.newspaperTimeoutMs,

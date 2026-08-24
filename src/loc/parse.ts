@@ -638,10 +638,9 @@ export function toNewspaperResults(
   payload: unknown,
   url: string,
   query: string,
-  budget: ExcerptBudget,
-  onSkip: (n: number) => void,
-  settled = true,
+  reading: { budget: ExcerptBudget; onSkip: (n: number) => void; settled?: boolean },
 ): NewspaperResults {
+  const { budget, onSkip, settled = true } = reading;
   const rows = rowsOf(payload, url);
   const terms = queryTerms(query);
   const hits: NewspaperHit[] = [];

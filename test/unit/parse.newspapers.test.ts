@@ -8,7 +8,10 @@ const BUDGET = { maxChars: 120, maxCount: 3 };
 
 function parse(name: string, query = '"the lamps went out"') {
   const skip = skipCounter();
-  const data = toNewspaperResults(fixture(name), URL, query, BUDGET, skip.onSkip);
+  const data = toNewspaperResults(fixture(name), URL, query, {
+    budget: BUDGET,
+    onSkip: skip.onSkip,
+  });
   return { data, skipped: skip.total() };
 }
 
@@ -83,7 +86,11 @@ describe("newspaper pages", () => {
   it("refuses to read a zero the site would not have its answer kept for", () => {
     const skip = skipCounter();
     const outcome = capture(() =>
-      toNewspaperResults(fixture("newspapers-empty"), URL, "lamps", BUDGET, skip.onSkip, false),
+      toNewspaperResults(fixture("newspapers-empty"), URL, "lamps", {
+        budget: BUDGET,
+        onSkip: skip.onSkip,
+        settled: false,
+      }),
     );
 
     expect(outcome.threw).toBe(true);
@@ -97,8 +104,10 @@ describe("newspaper pages", () => {
         { pagination: { of: 5 }, results: [{ title: "no address" }] },
         URL,
         "lamps",
-        BUDGET,
-        skip.onSkip,
+        {
+          budget: BUDGET,
+          onSkip: skip.onSkip,
+        },
       ),
     );
 
