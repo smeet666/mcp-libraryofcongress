@@ -12,6 +12,7 @@
  */
 
 import { z } from "zod";
+import { LocError, invalidInput } from "../errors.js";
 import type { LocClient, Read } from "../loc/client.js";
 import { FORMAT_ROUTES } from "../loc/paths.js";
 import type { FacetField } from "../loc/paths.js";
@@ -94,8 +95,6 @@ function notesOnWhatTheSearchReached(
 
   return notes;
 }
-
-import { LocError, invalidInput } from "../errors.js";
 
 /**
  * Why a page of records came back empty.

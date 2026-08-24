@@ -134,7 +134,7 @@ describe("search_newspapers", () => {
   it("carries a state, a paper and a span of years into the address it asks for", async () => {
     const calls: string[] = [];
     const fetchImpl = (async (url: string) => {
-      calls.push(String(url));
+      calls.push(url);
       return jsonResponse(fixture("newspapers"));
     }) as unknown as typeof fetch;
     const client = new LocClient({ logger: silentLogger, fetchImpl });
@@ -201,7 +201,7 @@ describe("search_items", () => {
   it("asks the route the media type names", async () => {
     const calls: string[] = [];
     const fetchImpl = (async (url: string) => {
-      calls.push(String(url));
+      calls.push(url);
       return jsonResponse(fixture("catalogue"));
     }) as unknown as typeof fetch;
     const client = new LocClient({ logger: silentLogger, fetchImpl });
