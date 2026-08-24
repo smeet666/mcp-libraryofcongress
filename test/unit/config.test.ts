@@ -142,8 +142,8 @@ describe("the guarantees a published client keeps", () => {
       );
       const onItem = await captureAsync(() => settle(build().getItem("never-answers"), AMPLE_MS));
 
-      expect(String((onNewspapers.error as Error).message)).toContain("45000ms");
-      expect(String((onItem.error as Error).message)).toContain("5000ms");
+      expect((onNewspapers.error as Error).message).toContain("45000ms");
+      expect((onItem.error as Error).message).toContain("5000ms");
     } finally {
       vi.useRealTimers();
     }

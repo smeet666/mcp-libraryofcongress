@@ -243,7 +243,10 @@ export async function fetchText(options: FetchOptions): Promise<Answer<string>> 
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     if (askedWaitMs > 0) {
       logger.debug(`waiting ${askedWaitMs}ms, as asked`);
-      await new Promise((resolve) => setTimeout(resolve, askedWaitMs));
+      // Read once into a constant: the timer closes over what this attempt was
+      // told to wait, not over whatever a later attempt puts there.
+      const asked = askedWaitMs;
+      await new Promise((resolve) => setTimeout(resolve, asked));
       askedWaitMs = 0;
     }
     await limiter.beforeRequest();
@@ -295,11 +298,12 @@ export async function fetchJson<T = unknown>(options: FetchOptions): Promise<Ans
   const { payload, settled } = await fetchText(options);
   try {
     return { payload: JSON.parse(payload) as T, settled };
-  } catch {
+  } catch (cause) {
     // A long answer that arrives cut off lands here as well as a page of HTML,
     // and both mean the same thing to a caller: nothing readable came back.
     throw parseFailure("The Library of Congress answered with something that is not JSON.", {
       url: options.url,
+      cause,
     });
   }
 }

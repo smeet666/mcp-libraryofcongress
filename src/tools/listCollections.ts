@@ -178,7 +178,7 @@ export async function runListCollections(
       // The formats are named so a caller can see what kind of thing sits
       // outside the catalogue routes rather than reading the omission as an
       // empty corpus.
-      const named = [...new Set(unnamed.flatMap((collection) => collection.formats))];
+      const named: string[] = [...new Set(unnamed.flatMap((collection) => collection.formats))];
       const kinds = named.length > 0 ? ` (${named.join(", ")})` : " (the Library publishes none)";
       notes.push(
         args.searchable_only
