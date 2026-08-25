@@ -20,11 +20,25 @@
       "url": "https://www.loc.gov/item/glass-orchard-1971/",
       "title": "The Glass Orchard",
       "date": "1971-06-04",
-      "contributor": ["reame, vashti", "orchard pictures"],
-      "original_format": ["book"],
-      "online_format": ["online text", "pdf"],
-      "location": ["utah", "united states"],
-      "subject": ["orchards", "salt flats"],
+      "contributor": [
+        "reame, vashti",
+        "orchard pictures"
+      ],
+      "original_format": [
+        "book"
+      ],
+      "online_format": [
+        "online text",
+        "pdf"
+      ],
+      "location": [
+        "utah",
+        "united states"
+      ],
+      "subject": [
+        "orchards",
+        "salt flats"
+      ],
       "digitized": true,
       "ignored_block": {
         "note": "the parsers must not read this"
@@ -43,7 +57,9 @@
     },
     {
       "date": "1990",
-      "contributor": ["anonymous"]
+      "contributor": [
+        "anonymous"
+      ]
     }
   ]
 }

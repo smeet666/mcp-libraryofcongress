@@ -23,11 +23,21 @@
       "description": [
         "SALT COUNTY HERALD PAGE FOUR A meeting of the county board was held on Tuesday evening at the courthouse where the question of the lamps went out along the river road was put to the members at length and referred back to the works committee for a report before the winter sets in. Later in the evening it was said that the lamps went out again before the vote was taken."
       ],
-      "number_page": ["0000000004"],
-      "partof_title": ["salt county herald (salt city, utah) 1881-1922"],
-      "location_state": ["utah"],
-      "contributor": ["salt county library"],
-      "original_format": ["newspaper"],
+      "number_page": [
+        "0000000004"
+      ],
+      "partof_title": [
+        "salt county herald (salt city, utah) 1881-1922"
+      ],
+      "location_state": [
+        "utah"
+      ],
+      "contributor": [
+        "salt county library"
+      ],
+      "original_format": [
+        "newspaper"
+      ],
       "ignored_block": {
         "note": "the parsers must not read this"
       }
@@ -40,15 +50,27 @@
       "description": [
         "ORCHARD DAILY REVIEW PAGE ONE Notices of sale and of removal are printed below together with the arrivals at the Marchetti hotel and the times of the ferry which runs on the hour until dusk throughout the season."
       ],
-      "number_page": ["0000000001"],
-      "partof_title": ["orchard daily review (orchard, oregon) 1899-1911"],
-      "location_state": ["oregon"],
-      "contributor": ["orchard county library"],
-      "original_format": ["newspaper"]
+      "number_page": [
+        "0000000001"
+      ],
+      "partof_title": [
+        "orchard daily review (orchard, oregon) 1899-1911"
+      ],
+      "location_state": [
+        "oregon"
+      ],
+      "contributor": [
+        "orchard county library"
+      ],
+      "original_format": [
+        "newspaper"
+      ]
     },
     {
       "title": "A page with no address",
-      "description": ["the lamps went out"]
+      "description": [
+        "the lamps went out"
+      ]
     }
   ]
 }

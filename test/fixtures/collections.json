@@ -19,12 +19,20 @@
       "id": "http://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
       "url": "https://www.loc.gov/collections/salt-country-field-recordings/about-this-collection/",
       "title": "Salt Country Field Recordings",
-      "description": ["Recordings made in the salt country between 1928 and 1954."],
+      "description": [
+        "Recordings made in the salt country between 1928 and 1954."
+      ],
       "count": 57,
       "items": "https://www.loc.gov/collections/salt-country-field-recordings/",
-      "subject": ["music", "folklife"],
+      "subject": [
+        "music",
+        "folklife"
+      ],
       "item": {
-        "formats": ["audio", "manuscripts"]
+        "formats": [
+          "audio",
+          "manuscripts"
+        ]
       },
       "ignored_block": {
         "note": "the parsers must not read this"
