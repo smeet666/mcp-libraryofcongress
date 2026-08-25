@@ -19,7 +19,9 @@
       "date": "1900"
     },
     {
-      "contributor": ["nobody"]
+      "contributor": [
+        "nobody"
+      ]
     }
   ]
 }

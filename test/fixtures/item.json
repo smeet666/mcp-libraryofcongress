@@ -4,12 +4,17 @@
     "url": "https://www.loc.gov/item/glass-orchard-1971/",
     "title": "The Glass Orchard &amp; other <cite>records</cite>",
     "date": "1971-06-04",
-    "contributor_names": ["Reame, Vashti, 1912-1988, author"],
+    "contributor_names": [
+      "Reame, Vashti, 1912-1988, author"
+    ],
     "description": [
       "A field recording made across two winters in the salt country.",
       "Second paragraph of the description."
     ],
-    "notes": ["Title devised by Library staff.", "Date from the accession record."],
+    "notes": [
+      "Title devised by Library staff.",
+      "Date from the accession record."
+    ],
     "subjects": [
       {
         "orchards": "https://www.loc.gov/example/orchards"
@@ -21,8 +26,13 @@
         "field recordings": "https://www.loc.gov/example/field-recordings"
       }
     ],
-    "location": ["utah", "united states"],
-    "language": ["english"],
+    "location": [
+      "utah",
+      "united states"
+    ],
+    "language": [
+      "english"
+    ],
     "partof": [
       {
         "count": 57,
@@ -35,10 +45,14 @@
         "url": "https://www.loc.gov/example/music"
       }
     ],
-    "repository": ["Library of Congress Music Division Washington, D.C. 20540 USA"],
+    "repository": [
+      "Library of Congress Music Division Washington, D.C. 20540 USA"
+    ],
     "call_number": "ML 1234",
     "rights_advisory": "No known restrictions on publication.",
-    "original_format": ["book"]
+    "original_format": [
+      "book"
+    ]
   },
   "cite_this": {
     "apa": "Reame, V. (1971) <cite>The Glass Orchard &amp; other records</cite>. Retrieved from the Library of Congress.",
