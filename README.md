@@ -43,7 +43,7 @@ claude mcp add libraryofcongress -- npx -y mcp-libraryofcongress
 }
 ```
 
-Node 20 or later.
+Node 24 or later.
 
 **Bundle, without npm**
 
@@ -396,7 +396,7 @@ claude mcp add libraryofcongress -- npx -y mcp-libraryofcongress
 }
 ```
 
-Node 20 ou plus récent.
+Node 24 ou plus récent.
 
 **Bundle, sans npm**
 
