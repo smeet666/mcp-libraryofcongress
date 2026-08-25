@@ -23,6 +23,10 @@ import type {
 import { ITEM_FIELD, MOST_SUBJECTS, ROW_FIELD, itemUrl } from "./paths.js";
 import { collectionSlugFrom, identifierFrom } from "./urls.js";
 
+const DIGITS_ONLY = /^\d+$/;
+const FOUR_DIGITS = /(\d{4})/;
+const WORD_SEPARATORS = /[^\p{L}\p{N}'-]+/u;
+
 type Json = Record<string, unknown>;
 
 const asObject = (value: unknown): Json | null =>
@@ -108,7 +112,7 @@ function asPageNumber(value: unknown): number | null {
     return null;
   }
   const digits = text.trim();
-  if (!/^\d+$/.test(digits)) {
+  if (!DIGITS_ONLY.test(digits)) {
     return null;
   }
   const n = Number(digits);
@@ -131,7 +135,7 @@ export function asYear(value: unknown): number | null {
 
   const text = asString(value);
   if (text !== null) {
-    const m = /(\d{4})/.exec(text);
+    const m = FOUR_DIGITS.exec(text);
     if (m) {
       return plausible(Number(m[1]));
     }
@@ -514,7 +518,7 @@ export function queryTerms(query: string): string[] {
   }
 
   const rest = query.replace(/"[^"]*"/g, " ");
-  for (const word of rest.split(/[^\p{L}\p{N}'-]+/u)) {
+  for (const word of rest.split(WORD_SEPARATORS)) {
     const lower = word.trim().toLowerCase();
     if (lower.length < 3 || JOINING_WORDS.has(lower)) {
       continue;

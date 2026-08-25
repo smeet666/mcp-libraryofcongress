@@ -25,6 +25,8 @@ import {
 } from "./paths.js";
 import { invalidInput } from "../errors.js";
 
+const DOTS_ONLY = /^\.+$/;
+
 /**
  * A year the site accepts at either end of a range. An open end is written as
  * the far bound rather than left out, because the parameter takes both.
@@ -175,7 +177,7 @@ export function itemDocumentUrl(identifier: string): string {
   // segment made only of dots is then resolved away when the address is parsed,
   // which walks the request out of the item route and can land it on a path the
   // robots file withholds. An identifier that climbs is not an identifier.
-  if (segments.some((segment) => /^\.+$/.test(segment))) {
+  if (segments.some((segment) => DOTS_ONLY.test(segment))) {
     throw invalidInput(
       `"${identifier}" is not an identifier: it carries a relative path segment.`,
       "Take the identifier from a search result rather than building one.",

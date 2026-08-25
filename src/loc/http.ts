@@ -18,6 +18,9 @@ import {
 import type { Logger } from "../config.js";
 import type { RateLimiter } from "./rateLimiter.js";
 
+/** A cache directive that allows nothing to be held. */
+const ZERO_MAX_AGE = /^(?:max-age|s-maxage)\s*=\s*0$/;
+
 export interface FetchOptions {
   url: string;
   userAgent: string;
@@ -229,7 +232,7 @@ export function statesASettledAnswer(cacheControl: string | null): boolean {
   if (directives.includes("no-cache") || directives.includes("no-store")) {
     return false;
   }
-  return !directives.some((directive) => /^(?:max-age|s-maxage)\s*=\s*0$/.test(directive));
+  return !directives.some((directive) => ZERO_MAX_AGE.test(directive));
 }
 
 export async function fetchText(options: FetchOptions): Promise<Answer<string>> {
