@@ -34,7 +34,10 @@
     "mcp-libraryofcongress": "dist/index.js"
   },
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
     "./client": {
       "types": "./dist/loc/client.d.ts",
       "import": "./dist/loc/client.js"
@@ -44,7 +47,8 @@
     "dist",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "server.json"
   ],
   "engines": {
     "node": ">=24.0.0"
