@@ -270,7 +270,7 @@ export async function runSearchItems(
   args: SearchItemsArgs,
 ): Promise<ToolResult> {
   try {
-    if (!INDEXED_WORD.test(args.query) && !ONE_CHARACTER_WORD.test(args.query)) {
+    if (!(INDEXED_WORD.test(args.query) || ONE_CHARACTER_WORD.test(args.query))) {
       return toToolError(
         invalidInput(
           `Every word of "${args.query}" is a single letter, and the catalogue index holds no such word, so this query is one the index cannot be asked.`,

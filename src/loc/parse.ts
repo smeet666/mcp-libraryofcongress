@@ -369,7 +369,7 @@ export function toPaging(payload: unknown, url: string, settled = true): Paging 
 
 function rowsOf(payload: unknown, url: string): Json[] {
   const root = asObject(payload);
-  if (!root || !Array.isArray(root.results)) {
+  if (!(root && Array.isArray(root.results))) {
     throw parseFailure("The answer carried its rows in a shape this server cannot read.", { url });
   }
   return root.results.map(asObject).filter((r): r is Json => r !== null);

@@ -15,6 +15,7 @@
  * teaches nobody anything and stops being read.
  */
 
+import process from "node:process";
 import { describe, expect, it, type TestContext } from "vitest";
 import { LocClient, type Read } from "../../src/loc/client.js";
 import { LocError } from "../../src/errors.js";
