@@ -43,6 +43,23 @@ claude mcp add libraryofcongress -- npx -y mcp-libraryofcongress
 }
 ```
 
+### With Docker
+
+```json
+{
+  "mcpServers": {
+    "libraryofcongress": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/smeet666/mcp-libraryofcongress:3.0.0"]
+    }
+  }
+}
+```
+
+`-i` keeps stdin open, which is where the protocol travels, and no `-t` is
+passed: a TTY rewrites the stream and breaks it. The container needs outbound
+HTTPS to `www.loc.gov` and `lccn.loc.gov`, and nothing else: no volume, no port, no environment variable, no credential.
+
 Node 24 or later.
 
 **Bundle, without npm**
@@ -395,6 +412,24 @@ claude mcp add libraryofcongress -- npx -y mcp-libraryofcongress
   }
 }
 ```
+
+### Avec Docker
+
+```json
+{
+  "mcpServers": {
+    "libraryofcongress": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/smeet666/mcp-libraryofcongress:3.0.0"]
+    }
+  }
+}
+```
+
+`-i` garde l'entrée standard ouverte, qui est le canal du protocole, et aucun
+`-t` n'est passé : un terminal réécrit le flux et le casse. Le conteneur a besoin
+d'un accès HTTPS sortant vers `www.loc.gov` et `lccn.loc.gov`, et de rien d'autre :
+aucun volume, aucun port, aucune variable d'environnement, aucun identifiant.
 
 Node 24 ou plus récent.
 
