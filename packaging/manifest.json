@@ -39,19 +39,236 @@
   "tools": [
     {
       "name": "search_newspapers",
-      "description": "Find a phrase in the text of scanned newspaper pages."
+      "description": "Find a phrase in the text of scanned newspaper pages.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Words or a quoted phrase, such as '\"cure for influenza\"'. The index reads the text off the pages themselves and holds single characters, so a query of one character is a query it answers."
+          },
+          "location": {
+            "description": "The state a paper was published in, written as the Library writes it: 'new york', 'district of columbia'. It is the value 'state' carries on the matches this tool returns.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "publication": {
+            "description": "One newspaper, named with its town and the years it ran: 'new-york tribune (new york [n.y.]) 1866-1924'. Take the wording from 'publication' on a match here, or from a title in search_items with media_type 'newspapers'.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "year_from": {
+            "description": "Earliest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "year_to": {
+            "description": "Latest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "limit": {
+            "default": 10,
+            "description": "Matches to return.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "page": {
+            "default": 1,
+            "description": "Which page of matches, from 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "max_excerpt_chars": {
+            "default": 300,
+            "description": "Budget for one passage. Read it together with 'max_excerpts_per_match': the size of the answer is the product of the two and the number of matches.",
+            "type": "integer",
+            "minimum": 80,
+            "maximum": 1200
+          },
+          "max_excerpts_per_match": {
+            "default": 3,
+            "description": "Passages to keep per match. A page holding the words several times yields several, and the later ones rarely say anything the first did not.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": ["query"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      }
     },
     {
       "name": "search_items",
-      "description": "Search one catalogue by title, creator or subject."
+      "description": "Search one catalogue by title, creator or subject.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Words to look for in titles, creators and catalogue descriptions. The catalogue index holds no word of a single letter, so at least one word has to run to two letters or more, unless it is written in a script where one character is a word."
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "books",
+              "photos",
+              "maps",
+              "audio",
+              "film-and-videos",
+              "manuscripts",
+              "notated-music",
+              "newspapers"
+            ],
+            "description": "Which catalogue to search: books, photos, maps, audio, film-and-videos, manuscripts, notated-music or newspapers. 'newspapers' holds the papers themselves; a phrase printed on a page belongs in search_newspapers."
+          },
+          "year_from": {
+            "description": "Earliest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "year_to": {
+            "description": "Latest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "subject": {
+            "description": "A subject heading, such as 'crime'.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "location": {
+            "description": "A place, such as 'oklahoma'.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "language": {
+            "description": "A language, written in English: 'english'.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "collection": {
+            "description": "A collection, named exactly as list_collections reports it under 'collection_filter'.",
+            "type": "string",
+            "maxLength": 160
+          },
+          "online_only": {
+            "default": true,
+            "description": "Keep to material with a digitised copy. Set false to include shelf-only records.",
+            "type": "boolean"
+          },
+          "sort": {
+            "default": "relevance",
+            "description": "Order of the results.",
+            "type": "string",
+            "enum": ["relevance", "newest", "oldest", "title"]
+          },
+          "limit": {
+            "default": 10,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["query", "media_type"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      }
     },
     {
       "name": "get_item",
-      "description": "Read one record, section by section."
+      "description": "Read one record, section by section.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Record identifier, such as '2017645459' or 'sn83045462/1929-02-03/ed-1'."
+          },
+          "sections": {
+            "default": ["basic"],
+            "description": "Which parts to return. Each one beyond 'basic' adds to the size of the answer.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["basic", "citations", "resources", "full_metadata"]
+            }
+          },
+          "offset": {
+            "default": 0,
+            "description": "Where to resume the description.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_description_chars": {
+            "default": 2000,
+            "description": "Characters of the description to return in one call.",
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 20000
+          }
+        },
+        "required": ["identifier"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      }
     },
     {
       "name": "list_collections",
-      "description": "The digital collections, with the filter each one takes."
+      "description": "The digital collections, with the filter each one takes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 20,
+            "description": "Collections to return.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "page": {
+            "default": 1,
+            "description": "Which page of collections, from 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "searchable_only": {
+            "default": false,
+            "description": "Keep only the collections whose formats name a media_type, which are the ones search_items can be asked for.",
+            "type": "boolean"
+          },
+          "max_description_chars": {
+            "default": 300,
+            "description": "Budget for one collection's description.",
+            "type": "integer",
+            "minimum": 80,
+            "maximum": 2000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      }
     }
   ],
   "compatibility": {
