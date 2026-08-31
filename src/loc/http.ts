@@ -17,6 +17,7 @@ import {
 } from "../errors.js";
 import type { Logger } from "../config.js";
 import type { RateLimiter } from "./rateLimiter.js";
+import { WIDEST_SPACING_FACTOR } from "./rateLimiter.js";
 
 /** A cache directive that allows nothing to be held. */
 const ZERO_MAX_AGE = /^(?:max-age|s-maxage)\s*=\s*0$/;
@@ -54,6 +55,30 @@ const LONGEST_WAIT_MS = 30_000;
  * slot for the full deadline again.
  */
 const RETRIES_AFTER_SILENCE = 1;
+
+/**
+ * The longest a single read can take, spacing, waits and deadlines together.
+ *
+ * A read that meets silence or push-back makes several requests, and each one
+ * claims the spacing gap, may be preceded by a wait the site asked for, and
+ * holds its own deadline. Anything that puts a deadline on a read from outside
+ * has to allow for the whole series: cut shorter, it kills the read before it
+ * can report what happened, and what the caller gets is the outside deadline
+ * rather than what the Library did.
+ *
+ * The figure is an upper bound. It takes the widest spacing push-back can reach
+ * and the longest wait a refusal is honoured for, so a read that is merely slow
+ * settles well inside it.
+ */
+export function longestReadMs(patience: {
+  timeoutMs: number;
+  maxRetries: number;
+  intervalMs: number;
+}): number {
+  const attempts = patience.maxRetries + 1;
+  const widestSpacing = patience.intervalMs * WIDEST_SPACING_FACTOR;
+  return attempts * (widestSpacing + patience.timeoutMs) + patience.maxRetries * LONGEST_WAIT_MS;
+}
 
 /**
  * Read a Retry-After header, which is either a number of seconds or a date.

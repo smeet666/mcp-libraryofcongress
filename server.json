@@ -19,12 +19,12 @@
     "url": "https://github.com/smeet666/mcp-libraryofcongress",
     "source": "github"
   },
-  "version": "3.0.1",
+  "version": "3.0.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "mcp-libraryofcongress",
-      "version": "3.0.1",
+      "version": "3.0.2",
       "transport": {
         "type": "stdio"
       },
@@ -58,8 +58,8 @@
     },
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/smeet666/mcp-libraryofcongress/releases/download/v3.0.1/mcp-libraryofcongress-3.0.1.mcpb",
-      "version": "3.0.1",
+      "identifier": "https://github.com/smeet666/mcp-libraryofcongress/releases/download/v3.0.2/mcp-libraryofcongress-3.0.2.mcpb",
+      "version": "3.0.2",
       "transport": {
         "type": "stdio"
       }

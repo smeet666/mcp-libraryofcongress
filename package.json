@@ -1,6 +1,6 @@
 {
   "name": "mcp-libraryofcongress",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "MCP server for the Library of Congress. Search inside digitised newspaper pages, browse the catalogue by format, and read records and collections. No API key required.",
   "keywords": [
     "mcp",
@@ -60,7 +60,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run test/unit",
     "coverage": "vitest run test/unit --coverage",
-    "test:live": "vitest run test/live --testTimeout=120000",
+    "test:live": "vitest run test/live",
     "build:fixtures": "node scripts/build-fixtures.mjs",
     "build:manifest": "npm run build && node scripts/build-manifest-tools.mjs",
     "format": "biome check --write && prettier --write \"**/*.{md,yml}\"",

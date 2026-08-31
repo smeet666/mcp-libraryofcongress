@@ -19,8 +19,27 @@ import process from "node:process";
 import { describe, expect, it, type TestContext } from "vitest";
 import { LocClient, type Read } from "../../src/loc/client.js";
 import { LocError } from "../../src/errors.js";
+import { loadConfig } from "../../src/config.js";
+import { longestReadMs } from "../../src/loc/http.js";
 
 const live = process.env.LOC_LIVE === "1" ? describe : describe.skip;
+
+/**
+ * What each case below is allowed to take, read from the client's own patience.
+ *
+ * A read that meets silence or push-back spends deadlines, waits and spacing in
+ * series, and it reports what the Library did only once it has spent them all.
+ * A runner that gives up first replaces that report with a timeout of its own,
+ * which reddens this suite on a slow night and says the contract moved. The
+ * longest of the two route deadlines governs the whole suite, so every case is
+ * covered by one figure that follows whatever settings the run was given.
+ */
+const CONFIG = loadConfig();
+const BUDGET_MS = longestReadMs({
+  timeoutMs: Math.max(CONFIG.timeoutMs, CONFIG.newspaperTimeoutMs),
+  maxRetries: CONFIG.maxRetries,
+  intervalMs: CONFIG.minIntervalMs,
+});
 
 /** Codes that name the state of the site rather than the shape of its answers. */
 const UPSTREAM_TROUBLE = new Set(["rate_limited", "network_error", "timeout"]);
@@ -52,7 +71,7 @@ async function readOrLeaveOut<T>(
   }
 }
 
-live("the site itself", () => {
+live("the site itself", { timeout: BUDGET_MS }, () => {
   const client = new LocClient();
 
   it("answers a catalogue search", async (ctx) => {

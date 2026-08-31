@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.0.2
+
+- **The live canary no longer reports a slow night at the Library as a broken
+  contract.** A read that meets silence or push-back spends deadlines, waits and
+  spacing in series, and it says what the Library did only once it has spent them
+  all. The runner gave up first, so the case that was meant to be left out failed
+  the run instead. What a read can take is now published by the module that
+  spends it, the live suite takes its deadline from there, and tests hold the
+  bound to what a read actually takes.
+
 ## 3.0.1
 
 - **Every tool is documented, with its arguments and what its answer carries.**
