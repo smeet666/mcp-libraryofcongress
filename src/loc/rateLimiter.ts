@@ -16,6 +16,14 @@ export interface RateLimiterOptions {
   maxIntervalMs?: number;
 }
 
+/**
+ * How far push-back may widen the spacing, as a multiple of the base gap.
+ *
+ * Anything that has to allow for the time a read takes reads it from here, so
+ * the ceiling and the allowance cannot drift apart.
+ */
+export const WIDEST_SPACING_FACTOR = 8;
+
 export class RateLimiter {
   private readonly baseIntervalMs: number;
   private readonly maxIntervalMs: number;
@@ -26,7 +34,7 @@ export class RateLimiter {
 
   constructor(options: RateLimiterOptions) {
     this.baseIntervalMs = options.intervalMs;
-    this.maxIntervalMs = options.maxIntervalMs ?? options.intervalMs * 8;
+    this.maxIntervalMs = options.maxIntervalMs ?? options.intervalMs * WIDEST_SPACING_FACTOR;
     this.intervalMs = options.intervalMs;
   }
 
