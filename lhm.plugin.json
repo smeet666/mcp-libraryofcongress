@@ -1,0 +1,1016 @@
+{
+  "author": "Damien Bouissou",
+  "authorUrl": "https://github.com/smeet666",
+  "description": "MCP server for the Library of Congress. Search inside digitised newspaper pages, browse the catalogue by format, and read records and collections. No API key required.",
+  "homepage": "https://github.com/smeet666/mcp-libraryofcongress#readme",
+  "identifier": "smeet666-mcp-libraryofcongress",
+  "name": "mcp-libraryofcongress",
+  "prompts": [],
+  "resources": [],
+  "tags": [
+    "mcp",
+    "model-context-protocol",
+    "library-of-congress",
+    "loc",
+    "chronicling-america",
+    "newspapers",
+    "full-text-search",
+    "archives"
+  ],
+  "tools": [
+    {
+      "name": "search_newspapers",
+      "title": "Search inside scanned newspaper pages",
+      "description": "Search the text inside digitised American newspaper pages held by the Library of Congress. This reads what optical recognition took off the scanned pages, so it finds a phrase that appears nowhere in a title or a catalogue record. Double quotes change how the Library matches the words, and it decides what they mean: a page can come back carrying the words apart or in another order rather than the phrase as written. What the quotes do to the number of matching pages varies from one query to the next, so run the search both ways rather than expecting either form to return more. 'total' counts the pages that match, and they page: ask for page 2, 3 and so on to see beyond the first answer. It is not a count of how many times the words occur. Each match names the newspaper, the date, the leaf of the issue and the state it was published in, and 'source_url' opens that leaf with the query applied. 'location' keeps to papers published in one state, 'publication' to a single paper, and 'year_from' with 'year_to' to a span of years. A filter matching nothing is dropped and the answer says so. Every match carries 'excerpt_kind', and the excerpts are labelled with it in the text. A 'passage' is the text around the words that matched. A 'page_opening' is the start of the page, sent because the text the Library returned with the row stops before those words appear, so it does not carry the match and quoting it quotes something else. Use search_items instead when looking for a work by its title, creator or subject.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Words or a quoted phrase, such as '\"cure for influenza\"'. The index reads the text off the pages themselves and holds single characters, so a query of one character is a query it answers."
+          },
+          "location": {
+            "description": "The state a paper was published in, written as the Library writes it: 'new york', 'district of columbia'. It is the value 'state' carries on the matches this tool returns.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "publication": {
+            "description": "One newspaper, named with its town and the years it ran: 'new-york tribune (new york [n.y.]) 1866-1924'. Take the wording from 'publication' on a match here, or from a title in search_items with media_type 'newspapers'.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "year_from": {
+            "description": "Earliest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "year_to": {
+            "description": "Latest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "limit": {
+            "default": 10,
+            "description": "Matches to return.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "page": {
+            "default": 1,
+            "description": "Which page of matches, from 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "max_excerpt_chars": {
+            "default": 300,
+            "description": "Budget for one passage. Read it together with 'max_excerpts_per_match': the size of the answer is the product of the two and the number of matches.",
+            "type": "integer",
+            "minimum": 80,
+            "maximum": 1200
+          },
+          "max_excerpts_per_match": {
+            "default": 3,
+            "description": "Passages to keep per match. A page holding the words several times yields several, and the later ones rarely say anything the first did not.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": ["query"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Newspaper pages that match, not the number returned and not a count of occurrences. Raise 'page' to read further into it."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "identifier": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Pass to get_item for the record of the issue this leaf belongs to."
+                },
+                "title": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "How the Library names the leaf, paper and date included."
+                },
+                "creator": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Whoever contributed the scan, which is a library."
+                },
+                "year": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "page_number": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The leaf within the issue."
+                },
+                "published_on": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Date of the issue, as published."
+                },
+                "publication": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The newspaper, with the years it ran."
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Where the paper was published."
+                },
+                "excerpt_kind": {
+                  "type": "string",
+                  "enum": ["passage", "page_opening"],
+                  "description": "'passage' means the excerpts are the text around the words that matched, centred on them because they were found in the text returned with this row. 'page_opening' means they are the start of the page, sent because that text stops before the searched words appear, so a page_opening does not carry the match."
+                },
+                "excerpts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Machine-read text off the page, all of the kind 'excerpt_kind' names."
+                },
+                "source_url": {
+                  "type": "string",
+                  "description": "Opens the leaf itself, with the query applied."
+                }
+              },
+              "required": [
+                "identifier",
+                "title",
+                "creator",
+                "year",
+                "page_number",
+                "published_on",
+                "publication",
+                "state",
+                "excerpt_kind",
+                "excerpts",
+                "source_url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["query", "total", "page", "hits", "notes"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_items",
+      "title": "Search the catalogue",
+      "description": "Search the Library of Congress catalogue: books, photographs, maps, recordings, films, manuscripts, sheet music and newspaper titles. 'media_type' is required, because the Library keeps a separate catalogue for each kind of thing. This matches titles, creators and catalogue descriptions. It does not read the text inside a scan; use search_newspapers for a phrase printed on a newspaper page. Filters take the words the Library itself uses: 'subject' and 'location' as the rows here spell them, 'language' written in English, 'collection' as list_collections reports it under 'collection_filter'. A filter matching nothing is set aside and the search asked again without it; the answer names what was dropped, and the count it reports is then the unfiltered search's. By default only material with a digitised copy is returned; set 'online_only' to false to take in records the Library holds on a shelf alone. A row carries an 'identifier' get_item takes when it names a record. A row that is a collection the Library gathered names no record: 'is_collection' is true there, 'identifier' is null, and 'source_url' opens the collection.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Words to look for in titles, creators and catalogue descriptions. The catalogue index holds no word of a single letter, so at least one word has to run to two letters or more, unless it is written in a script where one character is a word."
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "books",
+              "photos",
+              "maps",
+              "audio",
+              "film-and-videos",
+              "manuscripts",
+              "notated-music",
+              "newspapers"
+            ],
+            "description": "Which catalogue to search: books, photos, maps, audio, film-and-videos, manuscripts, notated-music or newspapers. 'newspapers' holds the papers themselves; a phrase printed on a page belongs in search_newspapers."
+          },
+          "year_from": {
+            "description": "Earliest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "year_to": {
+            "description": "Latest year, inclusive.",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 9999
+          },
+          "subject": {
+            "description": "A subject heading, such as 'crime'.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "location": {
+            "description": "A place, such as 'oklahoma'.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "language": {
+            "description": "A language, written in English: 'english'.",
+            "type": "string",
+            "maxLength": 120
+          },
+          "collection": {
+            "description": "A collection, named exactly as list_collections reports it under 'collection_filter'.",
+            "type": "string",
+            "maxLength": 160
+          },
+          "online_only": {
+            "default": true,
+            "description": "Keep to material with a digitised copy. Set false to include shelf-only records.",
+            "type": "boolean"
+          },
+          "sort": {
+            "default": "relevance",
+            "description": "Order of the results.",
+            "type": "string",
+            "enum": ["relevance", "newest", "oldest", "title"]
+          },
+          "limit": {
+            "default": 10,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["query", "media_type"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Records matching across this catalogue for the search the rows come from, not the number returned. A filter that matched nothing is set aside, and this then counts the search without it, which the notes name."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "identifier": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Pass this to get_item to read the full record. Null when the row names no address a record can be read at."
+                },
+                "is_collection": {
+                  "type": "boolean",
+                  "description": "True when the row is a collection a curator gathered and named rather than a record of the catalogue searched. The item route holds nothing at a collection's address, so 'identifier' is null and 'source_url' is where it opens."
+                },
+                "title": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "creator": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Whoever the Library credits for the work."
+                },
+                "year": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Read off 'date' when that date names a year."
+                },
+                "date": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The date as published, which is often a range."
+                },
+                "date_code": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The cataloguing code the Library files the row under in place of a date, such as 'uuuu' or '18??'. It stands for digits the Library has not established, so 'date' and 'year' are null beside it. Null wherever the filed value is a date."
+                },
+                "format": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "What the thing is: book, photo, map, newspaper."
+                },
+                "location": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Places the record is catalogued under."
+                },
+                "subjects": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "online": {
+                  "type": "boolean",
+                  "description": "Whether a digitised copy can be read online."
+                },
+                "source_url": {
+                  "type": "string",
+                  "description": "Public page. Show this when citing the record."
+                }
+              },
+              "required": [
+                "identifier",
+                "is_collection",
+                "title",
+                "creator",
+                "year",
+                "date",
+                "date_code",
+                "format",
+                "location",
+                "subjects",
+                "online",
+                "source_url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["query", "total", "page", "items", "notes"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_item",
+      "title": "Read a record",
+      "description": "Read one Library of Congress record by its identifier, as returned by search_items or search_newspapers. An identifier can carry slashes: a single newspaper issue is named by its paper, its date and its edition together. Sections are opt-in: 'basic' is the default and covers what a description needs. 'date' carries only the precision the record's own words support, and 'date_stated' repeats those words, which can be a span of years the record was filed at the opening of. Where the Library has established no date it files the record under a cataloguing code, which 'date_code' carries while 'date' and 'year' stay null. 'citations' returns the ready-made citations the Library publishes for the record. 'resources' lists the served copies, such as page images and downloadable files. 'full_metadata' returns every field the Library publishes for the record, which is large and rarely needed. A long description paginates: when 'next_offset' is not null, call again with 'offset' set to it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Record identifier, such as '2017645459' or 'sn83045462/1929-02-03/ed-1'."
+          },
+          "sections": {
+            "default": ["basic"],
+            "description": "Which parts to return. Each one beyond 'basic' adds to the size of the answer.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["basic", "citations", "resources", "full_metadata"]
+            }
+          },
+          "offset": {
+            "default": 0,
+            "description": "Where to resume the description.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_description_chars": {
+            "default": 2000,
+            "description": "Characters of the description to return in one call.",
+            "type": "integer",
+            "minimum": 200,
+            "maximum": 20000
+          }
+        },
+        "required": ["identifier"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "object",
+            "properties": {
+              "identifier": {
+                "type": "string"
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "creator": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "year": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The year of 'date', which a span of years makes the first of the span."
+              },
+              "date": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The date the Library files the record under, carrying only the precision the record's own words support."
+              },
+              "date_code": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The cataloguing code the Library files the record under in place of a date, such as 'uuuu' or '18??'. It stands for digits the Library has not established, so 'date' and 'year' are null beside it. Null wherever the filed value is a date."
+              },
+              "date_stated": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "When the record was made or issued, in the record's own words, which can be a span of years or a phrase. Null when the record says nothing about it."
+              },
+              "format": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source_url": {
+                "type": "string",
+                "description": "Public page. Show this when citing the record."
+              }
+            },
+            "required": [
+              "identifier",
+              "title",
+              "creator",
+              "year",
+              "date",
+              "date_code",
+              "date_stated",
+              "format",
+              "source_url"
+            ],
+            "additionalProperties": false
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as 'offset' to read the rest of the description. Null when it ends here."
+          },
+          "notes_on_record": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Notes the Library published about the record itself, less any whose words the description already carries. The Library assembles the description of some records out of these notes, and those records would otherwise return one text under two names."
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "location": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "language": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "part_of": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Collections and divisions the record sits in."
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the original is held."
+          },
+          "call_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rights": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the Library says about reuse. Null when it says nothing, which is not permission."
+          },
+          "citations": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "caption": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "file_count": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "image_url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["caption", "file_count", "url", "image_url"],
+              "additionalProperties": false
+            }
+          },
+          "full_metadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "item",
+          "description",
+          "offset",
+          "next_offset",
+          "notes_on_record",
+          "subjects",
+          "location",
+          "language",
+          "part_of",
+          "repository",
+          "call_number",
+          "rights",
+          "notes"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_collections",
+      "title": "List the digital collections",
+      "description": "List the digital collections of the Library of Congress: bodies of material a curator chose, described and published together. Use it to see what is there before searching, since a collection names a corpus that a query would have to guess at. 'collection_filter' on each row is the wording search_items takes as its 'collection' argument, and 'searchable_media_types' names the catalogues that filter can be sent to. A collection whose 'searchable_media_types' is empty gathers a kind of thing the catalogue search is not divided into, such as web archives; set 'searchable_only' to leave those out. 'item_count' is how many records the collection gathers, which is the size of the corpus rather than the number of rows here.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 20,
+            "description": "Collections to return.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "page": {
+            "default": 1,
+            "description": "Which page of collections, from 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "searchable_only": {
+            "default": false,
+            "description": "Keep only the collections whose formats name a media_type, which are the ones search_items can be asked for.",
+            "type": "boolean"
+          },
+          "max_description_chars": {
+            "default": 300,
+            "description": "Budget for one collection's description.",
+            "type": "integer",
+            "minimum": 80,
+            "maximum": 2000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Collections the Library publishes, not the number returned."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "identifier": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The slug the collection is addressed by."
+                },
+                "title": {
+                  "type": "string"
+                },
+                "collection_filter": {
+                  "type": "string",
+                  "description": "Pass as 'collection' to search_items, together with one of 'searchable_media_types', to keep results within this collection."
+                },
+                "searchable_media_types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The 'media_type' values search_items can be asked with for this collection, read off the formats the Library publishes for it. Empty when none of those formats names a catalogue."
+                },
+                "description": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "item_count": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Records the collection gathers. Null when the Library states none."
+                },
+                "subjects": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "formats": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Kinds of thing the collection holds."
+                },
+                "source_url": {
+                  "type": "string"
+                },
+                "items_url": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Lists what the collection holds, page by page."
+                }
+              },
+              "required": [
+                "identifier",
+                "title",
+                "collection_filter",
+                "searchable_media_types",
+                "description",
+                "item_count",
+                "subjects",
+                "formats",
+                "source_url",
+                "items_url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["total", "page", "collections", "notes"],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ],
+  "version": "3.0.1"
+}
