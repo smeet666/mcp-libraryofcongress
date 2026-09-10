@@ -269,7 +269,7 @@ export async function runGetItem(client: LocClient, args: GetItemArgs): Promise<
     if (resources && resources.length > 0) {
       lines.push("", "Copies served online:");
       for (const resource of resources) {
-        lines.push(`  ${resource.caption ?? "copy"}${resource.url ? ` — ${resource.url}` : ""}`);
+        lines.push(`  ${resource.caption ?? "copy"}${resource.url ? `: ${resource.url}` : ""}`);
       }
     }
 
