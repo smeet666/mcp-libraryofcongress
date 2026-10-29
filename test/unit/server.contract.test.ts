@@ -25,7 +25,9 @@ const TOOLS = ["search_newspapers", "search_items", "get_item", "list_collection
 
 describe("what the server offers", () => {
   it("registers exactly the four tools", () => {
-    expect(Object.keys(registered()).sort()).toEqual([...TOOLS].sort());
+    expect(Object.keys(registered()).sort((a, b) => Number(a > b) - Number(a < b))).toEqual(
+      [...TOOLS].sort((a, b) => Number(a > b) - Number(a < b)),
+    );
   });
 
   it("declares every tool as read-only", () => {

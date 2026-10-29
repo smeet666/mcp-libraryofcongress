@@ -75,7 +75,13 @@ describe("search_newspapers · the envelope the contract names", () => {
   it("returns exactly { query, total, page, hits, notes }", async () => {
     const { result } = await search(newspapersPayload([newspaperRow()]));
     const body = structured<Envelope>(result);
-    expect(Object.keys(body).sort()).toEqual(["hits", "notes", "page", "query", "total"]);
+    expect(Object.keys(body).sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
+      "hits",
+      "notes",
+      "page",
+      "query",
+      "total",
+    ]);
   });
 
   it("echoes the query and the page asked for", async () => {

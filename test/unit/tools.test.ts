@@ -58,7 +58,7 @@ describe("search_newspapers", () => {
     const { client } = clientFor([() => jsonResponse(fixture("newspapers"))]);
     const result = await settle(runSearchNewspapers(client, newspaperArgs), AMPLE_MS);
 
-    expect(Object.keys(structured(result)).sort()).toEqual([
+    expect(Object.keys(structured(result)).sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
       "hits",
       "notes",
       "page",
@@ -189,7 +189,7 @@ describe("search_items", () => {
     const { client } = clientFor([() => jsonResponse(fixture("catalogue"))]);
     const result = await settle(runSearchItems(client, itemArgs), AMPLE_MS);
 
-    expect(Object.keys(structured(result)).sort()).toEqual([
+    expect(Object.keys(structured(result)).sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
       "items",
       "notes",
       "page",
