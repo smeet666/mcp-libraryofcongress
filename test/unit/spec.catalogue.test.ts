@@ -74,13 +74,9 @@ interface Envelope {
 describe("search_items · the envelope the contract names", () => {
   it("returns exactly { query, total, page, items, notes }", async () => {
     const { result } = await search(cataloguePayload([CATALOGUE_ROW]));
-    expect(Object.keys(structured<Envelope>(result)).sort()).toEqual([
-      "items",
-      "notes",
-      "page",
-      "query",
-      "total",
-    ]);
+    expect(
+      Object.keys(structured<Envelope>(result)).sort((a, b) => Number(a > b) - Number(a < b)),
+    ).toEqual(["items", "notes", "page", "query", "total"]);
   });
 
   it("carries the five fields a Record owes an aggregator", async () => {
@@ -492,10 +488,11 @@ describe("list_collections", () => {
       ]),
     );
     const body = structured<{ collections: Array<{ searchable_media_types: string[] }> }>(result);
-    expect([...(body.collections[0]?.searchable_media_types ?? [])].sort()).toEqual([
-      "film-and-videos",
-      "photos",
-    ]);
+    expect(
+      [...(body.collections[0]?.searchable_media_types ?? [])].sort(
+        (a, b) => Number(a > b) - Number(a < b),
+      ),
+    ).toEqual(["film-and-videos", "photos"]);
   });
 
   it("names no media_type for a collection whose formats name none", async () => {

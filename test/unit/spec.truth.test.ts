@@ -97,7 +97,7 @@ describe("what the server tells a model before it calls anything", () => {
     // contract fixes for it and never a synonym: a place is 'location' and a
     // span of years is 'year_from'/'year_to', the same words search_items uses,
     // so 'state', 'from_year' or 'newspaper' appearing here would be a failure.
-    expect(properties.sort()).toEqual([
+    expect(properties.sort((a, b) => Number(a > b) - Number(a < b))).toEqual([
       "limit",
       "location",
       "max_excerpt_chars",

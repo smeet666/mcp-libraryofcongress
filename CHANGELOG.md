@@ -1,6 +1,6 @@
 # Changelog
 
-## 3.0.2
+## 3.1.0
 
 - **The live canary no longer reports a slow night at the Library as a broken
   contract.** A read that meets silence or push-back spends deadlines, waits and
@@ -9,6 +9,12 @@
   the run instead. What a read can take is now published by the module that
   spends it, the live suite takes its deadline from there, and tests hold the
   bound to what a read actually takes.
+- **Node.js 24.22.1 or later**, inside the Node.js 24 line. The package, the
+  extension manifest and the image all declare it.
+- **zod `^4.6.7`.** Below 4.6.6, zod can exhaust memory while
+  validating oversized constrained collections, and the range accepts none of
+  those versions.
+- **Dependency floors:** `@modelcontextprotocol/sdk` `^1.32.2`.
 
 ## 3.0.1
 
